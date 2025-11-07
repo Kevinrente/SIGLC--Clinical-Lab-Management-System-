@@ -4,31 +4,44 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- ADD THIS LINE!
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrdenExamen extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['paciente_id', 'doctor_id', 'consulta_id', 'examen_id', 'ruta_resultado_pdf', 'hash_integridad', 'estado'];
+    /**
+     * Los atributos que se pueden asignar masivamente.
+     * Reflejan la última versión de la migración.
+     */
+    protected $fillable = [
+        'paciente_id',
+        'doctor_id',
+        'cita_id',                   // <-- CORREGIDO: Usamos cita_id
+        'examenes_solicitados',      // <-- CORREGIDO: Usamos el campo de texto
+        'ruta_resultado_pdf', 
+        'hash_integridad', 
+        'estado',
+    ];
+    
+    // -------------------------------------------------------------------
+    // RELACIONES (Asegurando la consistencia con la DB)
+    // -------------------------------------------------------------------
 
-    public function paciente(): BelongsTo // <-- Now resolved
+    public function paciente(): BelongsTo 
     { 
         return $this->belongsTo(Paciente::class); 
     }
     
-    public function doctor(): BelongsTo // <-- Now resolved
+    public function doctor(): BelongsTo 
     { 
         return $this->belongsTo(Doctor::class); 
     }
     
-    public function consulta(): BelongsTo // <-- Now resolved
+    public function cita(): BelongsTo // <-- CORREGIDO: Relación a Cita
     { 
-        return $this->belongsTo(Consulta::class); 
+        return $this->belongsTo(Cita::class); 
     }
     
-    public function examen(): BelongsTo // <-- Now resolved
-    { 
-        return $this->belongsTo(Examen::class); 
-    }
+    // Eliminada la relación 'examen' porque ya no existe el campo 'examen_id'
 }

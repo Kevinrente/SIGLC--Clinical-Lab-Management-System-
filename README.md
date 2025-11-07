@@ -1,95 +1,105 @@
-# 🔬 SIGLC: Sistema de Gestión Integral de Laboratorio y Clínica
+Sistema de Gestión Integral Clínica (SIGLC)
 
-Este proyecto es una aplicación web de nivel profesional desarrollada con Laravel 12 y PostgreSQL, diseñada para la gestión integral de un centro que combina consultas médicas especializadas y servicios de laboratorio clínico.
+Sistema de gestión de clínica médica desarrollado con Laravel, PostgreSQL, y Tailwind CSS. Diseñado para manejar la agenda de citas, el registro médico (consultas), y el flujo de órdenes de laboratorio con control de acceso basado en roles (RBAC).
 
-El sistema garantiza la **confidencialidad médica** mediante un estricto control de acceso basado en roles (RBAC) y la **integridad de los resultados de laboratorio** mediante el almacenamiento seguro de archivos.
+🚀 1. Requisitos del Sistema
 
-## ✨ Características Clave del SIGLC
+    PHP >= 8.2
 
-* **RBAC (Control de Acceso Basado en Roles):** Roles definidos como **Administrador**, **Doctor**, **Técnico de Laboratorio** y **Recepción**, con permisos para ver solo la información relevante a su puesto.
-* **Gestión de Citas:** Agendamiento de citas con validación de unicidad para evitar la doble reserva de un Doctor a la misma hora.
-* **Flujo Clínico Completo:** Permite al Doctor iniciar la **Consulta** desde la Cita, registrar el **Diagnóstico** y **Solicitar Exámenes**.
-* **Laboratorio Seguro:** Carga de resultados clínicos en formato **PDF** con almacenamiento privado (`storage/app/`) y verificación de integridad (Hash).
-* **Confidencialidad:** La descarga de resultados está protegida por RBAC (`lectura.historial`).
-* **Dashboard Operacional:** Muestra KPIs clave como Citas Pendientes para hoy y Órdenes de Laboratorio pendientes.
+    PostgreSQL (Configurado en el puerto 5432)
 
----
+    Composer
 
-## 🛠️ Requisitos del Sistema
+    Node.js & npm (Para compilar assets de Tailwind/Breeze)
 
-* PHP >= 8.2
-* Composer
-* Node.js & npm
-* **PostgreSQL** (configurado y activo)
-* Extensión PHP `pdo_pgsql` instalada.
+🛠️ 2. Guía de Instalación Rápida
 
----
+Sigue estos pasos para poner el proyecto en funcionamiento en tu entorno local (Fedora/Linux):
 
-## 🚀 Guía de Instalación y Setup
+2.1 Clonar el Repositorio e Instalar Dependencias
 
-Sigue estos pasos para configurar y ejecutar el proyecto:
-
-### 1. Clonar, Instalar Dependencias y Configurar Entorno
-
-```bash
-# 1. Clonar el proyecto
-git clone [ADJUNTA EL LINK DEL REPOSITORIO AQUÍ] siglc
-cd siglc
-
-# 2. Instalar dependencias
-composer install
-npm install
-
-# 3. Compilar assets y generar clave de app
-npm run dev 
-cp .env.example .env
-php artisan key:generate
-
-### 2. Configuración de PostgreSQL
-
-    Abre el archivo .env y configura los parámetros de conexión:
-    Fragmento de código
-
-    DB_CONNECTION=pgsql
-    DB_HOST=127.0.0.1
-    DB_PORT=5432
-    DB_DATABASE=siglc_db
-    DB_USERNAME=postgres
-    DB_PASSWORD=tu_contraseña_segura
-
-    Crea la base de datos siglc_db en tu servidor PostgreSQL si no existe.
-
-### 3. Reconstrucción de la Base de Datos y Seeders (CRÍTICO)
-
-Este comando elimina las tablas, las recrea y puebla los roles, permisos, usuarios de prueba y un Doctor inicial:
 Bash
 
-php artisan migrate:fresh --seed
+# 1. Clonar el repositorio
+git clone https://docs.github.com/es/repositories/creating-and-managing-repositories/quickstart-for-repositories siglc
 
-### 4. Ejecución del Servidor
+# 2. Entrar al directorio
+cd siglc
 
+# 3. Instalar dependencias de Composer
+composer install
+
+# 4. Instalar dependencias de Node.js y compilar assets
+npm install
+npm run dev
+
+2.2 Configuración de la Base de Datos (PostgreSQL)
+
+    Crear la Base de Datos: Accede a la consola de PostgreSQL y crea la base de datos siglc_db (o el nombre que uses):
+    SQL
+
+sudo -i -u postgres
+createdb siglc_db
+exit
+
+Configurar .env: Duplica el archivo .env.example a .env y actualiza las credenciales de PostgreSQL:
+Bash
+
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=siglc_db
+DB_USERNAME=postgres
+DB_PASSWORD=tu_contraseña_segura
+
+Ejecutar Migraciones y Seeds: Esto creará todas las tablas y poblará los roles, permisos y usuarios de prueba.
+Bash
+
+    php artisan migrate:fresh --seed
+
+2.3 Iniciar la Aplicación
+
+Ejecuta el servidor de desarrollo de Laravel:
 Bash
 
 php artisan serve
 
-El sistema estará disponible en http://127.0.0.1:8000/.
+Accede a la aplicación en: http://127.0.0.1:8000
 
-🔑 Cuentas de Prueba (RBAC)
+🔑 3. Usuarios de Prueba y Credenciales (RBAC)
 
-Utiliza estas credenciales para probar los flujos de trabajo y la seguridad del sistema:
-Rol	Email	Contraseña	Permisos Principales
-Administrador	admin@siglc.com	password	TOTAL (Gestiona Doctores, ve todo).
-Doctor	doctor@siglc.com	password	Crea Consultas, Agenda, Descarga Historial.
-Recepción	recepcion@siglc.com	password	Gestiona Pacientes y Agenda de Citas.
+El seeder MedicalRolesAndPermissionsSeeder ha creado las siguientes cuentas con la contraseña password para probar el flujo de trabajo:
+Rol	Email de Acceso	Permisos Clave	Propósito
+Admin	admin@siglc.com	gestion.administracion, gestion.laboratorio (Total)	Gestión de Usuarios, Configuración y Supervisión.
+Doctor	doctor@siglc.com	gestion.citas, gestion.consultas	Agenda, Registrar Notas Médicas, y Generar Órdenes de Examen.
+Laboratorio	laboratorio@siglc.com	gestion.laboratorio	Procesar órdenes, subir resultados, y gestionar el módulo de Laboratorio.
+Recepción	recepcion@siglc.com	gestion.citas, gestion.pacientes	Agendar, editar y cancelar citas, registrar pacientes.
 
-🛡️ Prueba de Flujo Clínico y Seguridad (RBAC)
+🧬 4. Arquitectura y Flujos de Trabajo Clave
 
-    Prueba de Roles: Inicia sesión como Recepción. Verifica que puedes crear Pacientes y Citas, pero NO puedes ver el módulo Doctores ni Laboratorio.
+El sistema se enfoca en tres flujos principales:
 
-    Prueba de Cita: Inicia sesión como Doctor. Ve a la Agenda (/citas) y utiliza el botón para iniciar la consulta de una cita pendiente.
+4.1 Flujo de Agenda y Citas
 
-    Prueba de Solicitud: En la Consulta, registra el diagnóstico y selecciona un Examen. El sistema debe crear una Orden de Examen con estado "Solicitado".
+    Ruta principal: /citas
 
-    Prueba de Laboratorio: Inicia sesión como Admin o Técnico. Ve a Laboratorio (/laboratorio). Sube un archivo PDF para esa orden.
+    Seguridad: Controlada por CitaController::middleware() (gestion.citas).
 
-    Prueba de Descarga Segura: Verifica que el Doctor pueda descargar el resultado (PDF) de forma segura desde el historial del paciente, lo cual confirma la protección de la ruta_resultado_pdf.
+    Lógica: La agenda se filtra automáticamente para el Doctor logueado y permite el filtro por fecha/doctor para Recepción/Admin.
+
+4.2 Flujo de Consulta y Órdenes de Examen
+
+Este flujo es crucial e inicia cuando la cita es Completada.
+Paso	Usuario	Acción/Ruta	Lógica de Integración
+1. Iniciar Consulta	Doctor	Clic en "Gestionar Consulta".	El sistema verifica el estado de la cita y el rol del usuario.
+2. Generar Orden	Doctor	Clic en "Generar Orden de Examen" (/citas/{cita}/ordenes/create).	Crea un registro en orden_examens con estado Solicitado, vinculado a la cita.
+3. Procesar Resultado	Laboratorio	Accede a la orden, cambia el estado a Finalizado.	Sube el archivo de resultado de forma segura (disco privado) y registra el hash de integridad.
+4. Descarga	Doctor/Paciente	Clic en "PDF" en la vista de detalle de la cita.	LaboratorioController::downloadResultado verifica la autenticación antes de servir el archivo privado.
+
+4.3 Arquitectura de Seguridad (RBAC)
+
+    Paquete: Spatie/Laravel-Permission.
+
+    Implementación: Los middlewares (permission:X) se aplican estáticamente en los controladores (Controller::middleware()), asegurando que solo los roles con el permiso explícito puedan acceder a las funciones (ej., solo Laboratorio puede acceder a gestion.laboratorio).
+
+Nota: La tabla orden_examens fue ajustada para usar un campo de texto (examenes_solicitados) en lugar de una llave foránea simple, para manejar múltiples solicitudes de examen por orden.

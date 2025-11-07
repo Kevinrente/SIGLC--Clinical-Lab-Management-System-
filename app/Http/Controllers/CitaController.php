@@ -9,7 +9,7 @@ use App\Http\Requests\StoreCitaRequest;
 use App\Http\Requests\UpdateCitaRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
+use Carbon\Carbon; // <-- AGREGADO: Necesario para la conversión de fechas en store()
 
 class CitaController extends Controller
 {
@@ -19,73 +19,82 @@ class CitaController extends Controller
     public static function middleware(): array
     {
         return [
-            // Solo los usuarios con el permiso 'gestion.citas' pueden acceder.
             'permission:gestion.citas',
         ];
     }
     
     // app/Http/Controllers/CitaController.php
 
-        public function index(Request $request)
-        {
-            // Obtener el usuario autenticado
-            $user = Auth::user();
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+        
+        // Asumiendo que hasRole('Doctor') funciona correctamente
+        $isDoctor = $user->hasRole('Doctor');
 
-            // *PHPDoc para corregir el error visual de hasRole*
-            /** @var \App\Models\User $user */
-            
-            // Obtener el doctor actual para filtrar la agenda si es un Doctor logueado
-            $isDoctor = $user->hasRole('Doctor');
-
-            // Inicializar $doctorId
-            $doctorId = null;
-            
-            if ($isDoctor) {
-                // Asume que el modelo User tiene la relación 'doctor' configurada
-                $doctorId = $user->doctor->id; 
+        $doctorId = null;
+        
+        if ($isDoctor) {
+            // CORRECCIÓN 1: Evitar el error si el User no tiene relación 'doctor'.
+            // Aquí se requiere que el modelo User tenga una relación hasOne con Doctor.
+            $doctorModel = $user->doctor ?? null;
+            if ($doctorModel) {
+                $doctorId = $doctorModel->id; 
             }
-            
-            // Si el Admin o Recepción envían un filtro por doctor, se usa ese filtro.
-            $doctorId = $request->input('doctor_id', $doctorId);
-
-            $fecha = $request->input('fecha') ?? now()->toDateString();
-            
-            $citasQuery = Cita::with(['paciente', 'doctor'])
-                ->whereDate('fecha_hora', $fecha)
-                ->orderBy('fecha_hora');
-            
-            if ($doctorId) {
-                $citasQuery->where('doctor_id', $doctorId);
-            }
-            
-            // Citas para la vista
-            $citas = $citasQuery->paginate(20);
-            
-            // Datos para filtros
-            $doctors = Doctor::orderBy('apellido')->get();
-            
-            return view('citas.index', compact('citas', 'doctors', 'fecha', 'doctorId'));
         }
+        
+        // Si el Admin/Recepción envían un filtro, este tiene prioridad.
+        // Si es un Doctor, $doctorId ya tiene su propio ID si no se filtra.
+        $doctorId = $request->input('doctor_id', $doctorId);
+
+        $fecha = $request->input('fecha') ?? now()->toDateString();
+        
+        // CORRECCIÓN 2: Eager Loading para evitar el error N+1 y el RelationNotFoundException.
+        // Se asegura que los datos de paciente y doctor se carguen con la consulta principal.
+        $citasQuery = Cita::with(['paciente', 'doctor']) 
+            ->whereDate('fecha_hora', $fecha)
+            ->orderBy('fecha_hora');
+        
+        if ($doctorId) {
+            $citasQuery->where('doctor_id', $doctorId);
+        }
+        
+        // Citas para la vista
+        $citas = $citasQuery->paginate(20);
+        
+        // Datos para filtros
+        $doctors = Doctor::orderBy('apellido')->get();
+        
+        return view('citas.index', compact('citas', 'doctors', 'fecha', 'doctorId'));
+    }
 
     public function create()
     {
-        // Se necesitan listas de Pacientes y Doctores para el formulario
         $pacientes = Paciente::orderBy('apellido')->get();
         $doctors = Doctor::orderBy('apellido')->get();
         
         return view('citas.create', compact('pacientes', 'doctors'));
     }
 
+    // app/Http/Controllers/CitaController.php
+
     public function store(StoreCitaRequest $request)
     {
-        Cita::create($request->validated());
+        $validated = $request->validated();
 
-        return redirect()->route('citas.index', ['fecha' => \Carbon\Carbon::parse($request->fecha_hora)->toDateString()])
+        // CORRECCIÓN 3: Ajustar la conversión de fecha/hora para coincidir con la sanitización y la DB
+        // Usamos el formato FINAL que resulta de la sanitización: d/m/Y h:i A (ej: 10/11/2025 04:30 PM)
+        $validated['fecha_hora'] = Carbon::createFromFormat('d/m/Y h:i A', $validated['fecha_hora'])->format('Y-m-d H:i:s');
+
+        Cita::create($validated);
+
+        return redirect()->route('citas.index', ['fecha' => Carbon::parse($validated['fecha_hora'])->toDateString()])
             ->with('success', 'Cita agendada exitosamente.');
     }
     
     public function show(Cita $cita)
     {
+        $cita->load(['paciente', 'doctor', 'ordenesExamen']);
         return view('citas.show', compact('cita'));
     }
 
@@ -99,15 +108,20 @@ class CitaController extends Controller
 
     public function update(UpdateCitaRequest $request, Cita $cita)
     {
-        $cita->update($request->validated());
+            $validated = $request->validated();
+    
+        // CONVERSIÓN FINAL: Usamos Carbon::parse(), que puede interpretar '11:00 a. m.'
+        $validated['fecha_hora'] = \Carbon\Carbon::parse($validated['fecha_hora'])->format('Y-m-d H:i:s');
         
-        return redirect()->route('citas.index', ['fecha' => \Carbon\Carbon::parse($request->fecha_hora)->toDateString()])
+        $cita->update($validated);
+        // ...
+        
+        return redirect()->route('citas.index', ['fecha' => \Carbon\Carbon::parse($validated['fecha_hora'])->toDateString()])
             ->with('success', 'Cita actualizada exitosamente.');
     }
 
     public function destroy(Cita $cita)
     {
-        // Se puede añadir lógica para enviar notificación al paciente si se cancela
         $cita->delete(); 
         
         return redirect()->route('citas.index')

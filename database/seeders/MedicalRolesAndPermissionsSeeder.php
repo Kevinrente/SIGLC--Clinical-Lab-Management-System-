@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use App\Models\User;
-use App\Models\Doctor; // Necesario para asociar al Doctor
+use App\Models\Doctor;
 
 class MedicalRolesAndPermissionsSeeder extends Seeder
 {
@@ -15,24 +15,21 @@ class MedicalRolesAndPermissionsSeeder extends Seeder
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         // --- 1. Definición de Permisos ---
-        Permission::create(['name' => 'gestion.citas']);         // Recepción
-        Permission::create(['name' => 'gestion.pacientes']);    // Recepción, Admin
-        
-        Permission::create(['name' => 'gestion.consultas']);    // Doctor
-        Permission::create(['name' => 'lectura.historial']);    // Doctor, Admin
-        
-        Permission::create(['name' => 'gestion.laboratorio']);  // Técnico, Admin
-        
-        Permission::create(['name' => 'gestion.administracion']);// Admin
-        
+        Permission::firstOrCreate(['name' => 'gestion.citas']);         
+        Permission::firstOrCreate(['name' => 'gestion.pacientes']);    
+        Permission::firstOrCreate(['name' => 'gestion.consultas']);    
+        Permission::firstOrCreate(['name' => 'lectura.historial']);    
+        Permission::firstOrCreate(['name' => 'gestion.laboratorio']);  
+        Permission::firstOrCreate(['name' => 'gestion.administracion']);
+
         // --- 2. Creación de Roles y Asignación ---
 
-        // A. Administrador (Acceso total y seguridad)
-        $roleAdmin = Role::create(['name' => 'Admin']);
+        // A. Administrador (Acceso total)
+        $roleAdmin = Role::firstOrCreate(['name' => 'Admin']);
         $roleAdmin->givePermissionTo(Permission::all());
 
         // B. Especialista/Doctor
-        $roleDoctor = Role::create(['name' => 'Doctor']);
+        $roleDoctor = Role::firstOrCreate(['name' => 'Doctor']);
         $roleDoctor->givePermissionTo([
             'gestion.citas',
             'gestion.pacientes',
@@ -40,14 +37,14 @@ class MedicalRolesAndPermissionsSeeder extends Seeder
             'lectura.historial',
         ]);
         
-        // C. Técnico de Laboratorio
-        $roleTecnico = Role::create(['name' => 'Tecnico']);
-        $roleTecnico->givePermissionTo([
+        // C. Laboratorio (ROL CORREGIDO)
+        $roleLaboratorio = Role::firstOrCreate(['name' => 'Laboratorio']);
+        $roleLaboratorio->givePermissionTo([
             'gestion.laboratorio',
         ]);
 
         // D. Recepción/Citas
-        $roleRecepcion = Role::create(['name' => 'Recepcion']);
+        $roleRecepcion = Role::firstOrCreate(['name' => 'Recepcion']);
         $roleRecepcion->givePermissionTo([
             'gestion.citas',
             'gestion.pacientes',
@@ -56,22 +53,21 @@ class MedicalRolesAndPermissionsSeeder extends Seeder
         // --- 3. Asignar Roles y Crear Entidades ---
         
         // Usuario 1: Admin
-        $userAdmin = User::factory()->create(['name' => 'Jefe de Administración', 'email' => 'admin@siglc.com', 'password' => bcrypt('password')]);
-        $userAdmin->assignRole($roleAdmin);
+        $userAdmin = User::firstOrCreate(['email' => 'admin@siglc.com'], ['name' => 'Jefe de Administración', 'password' => bcrypt('password')])->assignRole($roleAdmin);
         
         // Usuario 2: Doctor (Crear el registro de Doctor asociado)
-        $userDoctor = User::factory()->create(['name' => 'Dr. Especialista', 'email' => 'doctor@siglc.com', 'password' => bcrypt('password')]);
-        $userDoctor->assignRole($roleDoctor);
-        Doctor::create([
-            'nombre' => 'Doctor', 
+        $userDoctor = User::firstOrCreate(['email' => 'doctor@siglc.com'], ['name' => 'Dr. Especialista', 'password' => bcrypt('password')])->assignRole($roleDoctor);
+        Doctor::firstOrCreate(['user_id' => $userDoctor->id], [
+            'nombre' => 'Dr.', 
             'apellido' => 'Especialista', 
             'licencia_medica' => 'DR-12345',
             'especialidad' => 'Medicina Interna',
-            'user_id' => $userDoctor->id, // CLAVE: Relación con el usuario
         ]);
 
         // Usuario 3: Recepción
-        $userRecepcion = User::factory()->create(['name' => 'Asistente Recepción', 'email' => 'recepcion@siglc.com', 'password' => bcrypt('password')]);
-        $userRecepcion->assignRole($roleRecepcion);
+        $userRecepcion = User::firstOrCreate(['email' => 'recepcion@siglc.com'], ['name' => 'Asistente Recepción', 'password' => bcrypt('password')])->assignRole($roleRecepcion);
+        
+        // Usuario 4: Laboratorio (NUEVA CUENTA)
+        $userLaboratorio = User::firstOrCreate(['email' => 'laboratorio@siglc.com'], ['name' => 'Técnico de Laboratorio', 'password' => bcrypt('password')])->assignRole($roleLaboratorio);
     }
 }

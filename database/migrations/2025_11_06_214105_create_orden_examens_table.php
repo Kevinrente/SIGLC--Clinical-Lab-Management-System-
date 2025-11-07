@@ -11,17 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // En la función up()
         Schema::create('orden_examens', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('paciente_id')->constrained()->onDelete('cascade');
-            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('restrict');
-            $table->foreignId('consulta_id')->nullable()->constrained()->onDelete('set null'); // De qué consulta proviene
-            $table->foreignId('examen_id')->constrained()->onDelete('restrict'); // Qué examen es
             
-            // Gestión del resultado PDF
-            $table->string('ruta_resultado_pdf')->nullable(); // Almacenamiento seguro
-            $table->string('hash_integridad', 64)->nullable(); // Para auditoría
+            // Relaciones de la Orden
+            $table->foreignId('cita_id')->nullable()->constrained('citas')->onDelete('set null'); 
+            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('restrict');
+            $table->foreignId('paciente_id')->constrained('pacientes')->onDelete('cascade');
+            
+            // CORRECCIÓN CLAVE: Eliminamos 'examen_id' para flexibilidad.
+            // Si quieres guardar una lista de IDs de exámenes, usarías una tabla pivote (muchos a muchos).
+            // Para simplicidad, guardaremos la lista de exámenes como texto.
+            $table->text('examenes_solicitados'); // Lista de exámenes (ej: "Glucosa, Hemograma")
+            
+            // Gestión del resultado PDF (Buenas Prácticas de Seguridad)
+            $table->string('ruta_resultado_pdf')->nullable();
+            $table->string('hash_integridad', 64)->nullable(); 
             
             $table->enum('estado', ['Solicitado', 'Muestra Tomada', 'En Análisis', 'Finalizado'])->default('Solicitado');
             $table->timestamps();

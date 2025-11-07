@@ -46,7 +46,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse ($citas as $cita)
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">{{ \Carbon\Carbon::parse($cita->fecha_hora)->format('H:i') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">{{ \Carbon\Carbon::parse($cita->fecha_hora)->format('h:i A') }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $cita->paciente->apellido }}, {{ $cita->paciente->nombre }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $cita->doctor->apellido }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $cita->motivo }}</td>
@@ -60,13 +60,23 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            
+                            {{-- 1. Botón de Editar/Ver Detalle --}}
                             <a href="{{ route('citas.edit', $cita) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</a>
+                            
+                            {{-- 2. Botón de Cancelar --}}
                             <form action="{{ route('citas.destroy', $cita) }}" method="POST" class="inline ml-3" onsubmit="return confirm('¿Cancelar esta cita?');">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-900">Cancelar</button>
                             </form>
+                            
+                            {{-- 3. Acción de Flujo (Ver Detalle de Consulta/Orden) --}}
                             @if($cita->estado == 'Completada')
-                                <a href="#" class="text-teal-600 hover:text-teal-900 ml-3">Ver Consulta</a>
+                                {{-- CRÍTICO: Redirigimos al SHOW para que se vean las acciones avanzadas (Generar Orden, Ver Nota) --}}
+                                <a href="{{ route('citas.show', $cita) }}" class="text-teal-600 hover:text-teal-900 ml-3 font-bold">Gestionar Consulta</a>
+                            @else
+                                {{-- Si no está completada, solo mostramos el detalle (opcional) --}}
+                                <a href="{{ route('citas.show', $cita) }}" class="text-gray-500 hover:text-gray-700 ml-3">Ver Detalle</a>
                             @endif
                         </td>
                     </tr>

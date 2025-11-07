@@ -8,6 +8,8 @@ use App\Http\Controllers\CitaController;
 use App\Http\Controllers\ConsultaController;
 use App\Http\Controllers\LaboratorioController;
 use App\Http\Controllers\ExamenController;
+// NUEVAS IMPORTACIONES
+use App\Http\Controllers\OrdenExamenController; 
 use App\Models\Paciente;
 use App\Models\Cita;
 
@@ -46,7 +48,17 @@ Route::middleware('auth')->group(function () {
     Route::resource('consultas', ConsultaController::class);
     Route::get('citas/{cita}/consulta/create', [ConsultaController::class, 'createFromCita'])->name('consultas.createFromCita');
     
-    // LABORATORIO: Órdenes y Descargas
+    // ====================================================================
+    // GESTIÓN DE ÓRDENES DE EXAMEN (FLUJO DOCTOR -> LABORATORIO)
+    // ====================================================================
+
+    // RUTA 1: [DOCTOR] Muestra el formulario para crear una orden desde una cita
+    Route::get('citas/{cita}/ordenes/create', [OrdenExamenController::class, 'create'])->name('ordenes.create'); 
+    
+    // RUTA 2: [DOCTOR] Almacena la nueva orden (Acción de POST)
+    Route::post('ordenes', [OrdenExamenController::class, 'store'])->name('ordenes.store');
+    
+    // 3. LABORATORIO: Listado y Gestión de Resultados
     Route::get('laboratorio', [LaboratorioController::class, 'index'])->name('laboratorio.index');
     Route::get('laboratorio/subir/{ordenExamen}', [LaboratorioController::class, 'editResultado'])->name('laboratorio.subirResultado');
     Route::post('laboratorio/subir/{ordenExamen}', [LaboratorioController::class, 'storeResultado'])->name('laboratorio.storeResultado');

@@ -1,105 +1,61 @@
-Sistema de Gestión Integral Clínica (SIGLC)
+# SIGLC - Sistema de Gestión Integral Clínica 🏥
 
-Sistema de gestión de clínica médica desarrollado con Laravel, PostgreSQL, y Tailwind CSS. Diseñado para manejar la agenda de citas, el registro médico (consultas), y el flujo de órdenes de laboratorio con control de acceso basado en roles (RBAC).
+Sistema web Full-Stack desarrollado en **Laravel 12** para la administración completa de un centro médico y laboratorio clínico. Diseñado para optimizar el flujo de trabajo entre doctores, laboratoristas, caja y pacientes.
 
-🚀 1. Requisitos del Sistema
+---
 
-    PHP >= 8.2
+## 🚀 Características Principales
 
-    PostgreSQL (Configurado en el puerto 5432)
+* **📅 Agenda Médica Inteligente:** Calendario visual interactivo (FullCalendar) con validación de horarios y gestión de estados.
+* **🩺 Historia Clínica Electrónica:** Registro de consultas con diagnósticos (CIE-10) y **Receta Médica Dinámica**.
+* **🧪 Laboratorio Avanzado:** Flujo de órdenes, carga de resultados con valores de referencia y generación automática de PDFs.
+* **💰 Caja y Facturación:** Módulo de cobro polimórfico (cobra Consultas y Exámenes por separado) con descuentos y recibos.
+* **👤 Portal del Paciente:** Autogestión de citas y descarga de resultados/recetas desde casa.
+* **📧 Notificaciones:** Envío automático de resultados y recetas por correo electrónico.
 
-    Composer
+---
 
-    Node.js & npm (Para compilar assets de Tailwind/Breeze)
+## 🛠️ 1. Requisitos del Sistema
 
-🛠️ 2. Guía de Instalación Rápida
+* PHP >= 8.2
+* PostgreSQL (Puerto 5432)
+* Composer
+* Node.js & npm (Para compilar assets)
 
-Sigue estos pasos para poner el proyecto en funcionamiento en tu entorno local (Fedora/Linux):
+---
 
-2.1 Clonar el Repositorio e Instalar Dependencias
+## ⚙️ 2. Guía de Instalación
 
-Bash
+Sigue estos pasos para levantar el proyecto en tu entorno local:
 
+### 2.1 Clonar e Instalar
+```bash
 # 1. Clonar el repositorio
-git clone https://docs.github.com/es/repositories/creating-and-managing-repositories/quickstart-for-repositories siglc
+git clone [https://github.com/Kevinrente/SIGLC--Clinical-Lab-Management-System-](https://github.com/Kevinrente/SIGLC--Clinical-Lab-Management-System-) siglc
 
 # 2. Entrar al directorio
 cd siglc
 
-# 3. Instalar dependencias de Composer
+# 3. Instalar dependencias Backend
 composer install
 
-# 4. Instalar dependencias de Node.js y compilar assets
-npm install
-npm run dev
-
-2.2 Configuración de la Base de Datos (PostgreSQL)
-
-    Crear la Base de Datos: Accede a la consola de PostgreSQL y crea la base de datos siglc_db (o el nombre que uses):
-    SQL
-
-sudo -i -u postgres
-createdb siglc_db
-exit
-
-Configurar .env: Duplica el archivo .env.example a .env y actualiza las credenciales de PostgreSQL:
-Bash
-
-DB_CONNECTION=pgsql
+# 4. Instalar dependencias Frontend
+npm install && npm run dev
+2.2 Configuración de Base de DatosCrea una base de datos en PostgreSQL llamada siglc_db.Duplica el archivo .env.example a .env y configura tus credenciales:Fragmento de códigoDB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_DATABASE=siglc_db
 DB_USERNAME=postgres
-DB_PASSWORD=tu_contraseña_segura
-
-Ejecutar Migraciones y Seeds: Esto creará todas las tablas y poblará los roles, permisos y usuarios de prueba.
-Bash
-
-    php artisan migrate:fresh --seed
-
-2.3 Iniciar la Aplicación
-
-Ejecuta el servidor de desarrollo de Laravel:
-Bash
-
-php artisan serve
-
-Accede a la aplicación en: http://127.0.0.1:8000
-
-🔑 3. Usuarios de Prueba y Credenciales (RBAC)
-
-El seeder MedicalRolesAndPermissionsSeeder ha creado las siguientes cuentas con la contraseña password para probar el flujo de trabajo:
-Rol	Email de Acceso	Permisos Clave	Propósito
-Admin	admin@siglc.com	gestion.administracion, gestion.laboratorio (Total)	Gestión de Usuarios, Configuración y Supervisión.
-Doctor	doctor@siglc.com	gestion.citas, gestion.consultas	Agenda, Registrar Notas Médicas, y Generar Órdenes de Examen.
-Laboratorio	laboratorio@siglc.com	gestion.laboratorio	Procesar órdenes, subir resultados, y gestionar el módulo de Laboratorio.
-Recepción	recepcion@siglc.com	gestion.citas, gestion.pacientes	Agendar, editar y cancelar citas, registrar pacientes.
-
-🧬 4. Arquitectura y Flujos de Trabajo Clave
-
-El sistema se enfoca en tres flujos principales:
-
-4.1 Flujo de Agenda y Citas
-
-    Ruta principal: /citas
-
-    Seguridad: Controlada por CitaController::middleware() (gestion.citas).
-
-    Lógica: La agenda se filtra automáticamente para el Doctor logueado y permite el filtro por fecha/doctor para Recepción/Admin.
-
-4.2 Flujo de Consulta y Órdenes de Examen
-
-Este flujo es crucial e inicia cuando la cita es Completada.
-Paso	Usuario	Acción/Ruta	Lógica de Integración
-1. Iniciar Consulta	Doctor	Clic en "Gestionar Consulta".	El sistema verifica el estado de la cita y el rol del usuario.
-2. Generar Orden	Doctor	Clic en "Generar Orden de Examen" (/citas/{cita}/ordenes/create).	Crea un registro en orden_examens con estado Solicitado, vinculado a la cita.
-3. Procesar Resultado	Laboratorio	Accede a la orden, cambia el estado a Finalizado.	Sube el archivo de resultado de forma segura (disco privado) y registra el hash de integridad.
-4. Descarga	Doctor/Paciente	Clic en "PDF" en la vista de detalle de la cita.	LaboratorioController::downloadResultado verifica la autenticación antes de servir el archivo privado.
-
-4.3 Arquitectura de Seguridad (RBAC)
-
-    Paquete: Spatie/Laravel-Permission.
-
-    Implementación: Los middlewares (permission:X) se aplican estáticamente en los controladores (Controller::middleware()), asegurando que solo los roles con el permiso explícito puedan acceder a las funciones (ej., solo Laboratorio puede acceder a gestion.laboratorio).
-
-Nota: La tabla orden_examens fue ajustada para usar un campo de texto (examenes_solicitados) en lugar de una llave foránea simple, para manejar múltiples solicitudes de examen por orden.
+DB_PASSWORD=tu_contraseña
+2.3 Configuración de Correo (Vital para notificaciones)Para que el sistema envíe los PDFs, configura un servidor SMTP (como Gmail App Password o Mailtrap) en el .env:Fragmento de códigoMAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=465
+MAIL_USERNAME=tucorreo@gmail.com
+MAIL_PASSWORD="tu_contraseña_de_aplicacion"
+MAIL_ENCRYPTION=ssl
+MAIL_FROM_ADDRESS="no-reply@siglc.com"
+2.4 Migraciones y Datos de PruebaEste comando crea las tablas, roles y carga el catálogo de exámenes con precios y valores de referencia:Bashphp artisan migrate:fresh --seed
+# IMPORTANTE: Cargar valores de referencia médicos
+php artisan db:seed --class=UpdateExamenesSeeder
+2.5 Iniciar ServidorBashphp artisan serve
+Accede a: http://127.0.0.1:8000🔑 3. Credenciales de Acceso (Roles)RolEmailContraseñaFunciones PrincipalesAdminadmin@siglc.compasswordControl total, Dashboard Gerencial, Reportes.Doctordoctor@siglc.compasswordAgenda, Atender Consultas, Recetar, Ordenar Exámenes.Laboratoriolaboratorio@siglc.compasswordProcesar muestras, Cargar resultados, Órdenes directas.Pacientekevin@siglc.compasswordReservar citas, Descargar PDFs (Resultados/Recetas).📘 4. Manual de Uso y Flujos de Trabajo📅 Flujo 1: Agenda y Citas MédicasReservar:Paciente: Ingresa a "Reservar Cita", ve los huecos disponibles (en blanco) y hace clic para agendar.Secretaria/Doctor: Puede ver la agenda completa. Al hacer clic en un espacio, puede seleccionar al paciente y marcar la cita como "Confirmada" inmediatamente.Validación: El sistema impide automáticamente que se reserven dos citas a la misma hora con el mismo doctor.🩺 Flujo 2: Atención Médica (Consulta)El Doctor va a "Lista de Citas" y pulsa "Atender" (Botón Verde).Llena la Historia Clínica: Motivo, Exploración Física y Diagnósticos.Receta Dinámica: Usa el botón "Agregar Medicamento" para crear la receta línea por línea.Finalización:Opción A (Solo Consulta): Guarda y finaliza. El paciente recibe su receta por correo.Opción B (Con Exámenes): Clic en "Guardar y Generar Orden". Esto guarda la consulta y redirige inmediatamente al módulo de laboratorio.💰 Flujo 3: Caja y FacturaciónEl sistema maneja cobros separados para Consultas y Laboratorio.Ir al menú "Consultas & Caja" o "Laboratorio".Buscar el registro con el ícono de Billete Verde 💵 (Pendiente de pago).Ingresar método de pago (Efectivo/Transferencia) y aplicar descuentos si aplica.Al confirmar, el estado cambia a "PAGADO" y se descarga un Recibo PDF.🧪 Flujo 4: Gestión de LaboratorioRecepción:Desde Cita: La orden llega automática del doctor.Directa (Walk-in): El laboratorista usa "Pacientes -> Orden Rápida" para pacientes sin cita médica.Procesamiento: Clic en "Gestionar". Se ingresan los valores numéricos de los exámenes.Entrega: Al finalizar, el sistema genera el Informe de Resultados (PDF) y lo envía automáticamente al correo del paciente.👤 Flujo 5: Portal del PacienteEl paciente inicia sesión y accede a un panel privado donde puede:Ver sus próximas citas.Descargar Recetas Médicas históricas.Descargar Resultados de Laboratorio apenas estén listos.🛡️ Arquitectura de SeguridadEl sistema utiliza Spatie/Laravel-Permission para proteger las rutas.Middleware role:admin para configuración global.Middleware permission:gestion.consultas para historias clínicas.Políticas de privacidad en el calendario (los pacientes no ven nombres de otros pacientes).

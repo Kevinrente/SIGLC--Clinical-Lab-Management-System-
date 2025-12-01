@@ -8,22 +8,33 @@ class StoreOrdenExamenRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // Autorizar si el usuario tiene permiso de Doctor/Consulta y está logueado
-        return $this->user() && $this->user()->can('gestion.consultas');
+        //return $this->user() && $this->user()->can('gestion.consultas');
+        return true;
     }
 
     public function rules(): array
     {
         return [
-            'cita_id' => ['required', 'exists:citas,id'],
-            'examenes_solicitados' => ['required', 'string', 'min:10'],
+            // Ahora la cita es opcional (nullable) porque el paciente puede venir de la calle
+            'cita_id' => 'nullable|exists:citas,id',
+            
+            // El doctor es opcional (nullable)
+            'doctor_id' => 'nullable|exists:doctors,id',
+            
+            // El paciente SI es obligatorio
+            'paciente_id' => 'required|exists:pacientes,id',
+            
+            // Los exámenes siguen siendo obligatorios
+            'examenes' => 'required|array|min:1',
+            'examenes.*' => 'exists:examens,id',
         ];
     }
     
     public function messages(): array
     {
         return [
-            'examenes_solicitados.required' => 'Debe especificar qué exámenes se solicitan.',
+            'examenes.required' => 'Debe seleccionar al menos un examen.',
+            'examenes.min' => 'Seleccione por lo menos un examen del catálogo.',
         ];
     }
 }

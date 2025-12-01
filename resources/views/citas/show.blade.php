@@ -120,9 +120,20 @@
                             <li class="p-4 border rounded shadow-sm flex justify-between items-center">
                                 <div>
                                     <p class="font-semibold">Orden #{{ $orden->id }} - {{ $orden->created_at->format('d/m/Y') }}</p>
-                                    <p class="text-sm text-gray-600 truncate max-w-lg">Solicitados: {{ Str::limit($orden->examenes_solicitados, 100) }}</p>
+                                    
+                                    {{-- NUEVO CÓDIGO: Mostrar lista de exámenes desde la relación --}}
+                                    <p class="text-sm text-gray-600 mt-1">
+                                        <strong>Estudios:</strong> 
+                                        @if($orden->examenes->count() > 0)
+                                            {{ $orden->examenes->pluck('nombre')->join(', ') }}
+                                        @else
+                                            <span class="italic text-gray-400">Sin exámenes especificados</span>
+                                        @endif
+                                    </p>
                                 </div>
+                                
                                 <div class="flex items-center space-x-3">
+                                    {{-- ... (etiqueta de estado y botón PDF igual que antes) ... --}}
                                     <span class="px-3 py-1 text-sm font-semibold rounded-full 
                                         @if($orden->estado == 'Finalizado') bg-green-100 text-green-800
                                         @elseif($orden->estado == 'Muestra Tomada') bg-blue-100 text-blue-800
@@ -130,12 +141,7 @@
                                         @endif">
                                         {{ $orden->estado }}
                                     </span>
-                                    @if ($orden->estado == 'Finalizado' && $orden->ruta_resultado_pdf)
-                                        <a href="{{ route('laboratorio.downloadResultado', $orden) }}" 
-                                           class="text-red-600 hover:text-red-800 font-bold text-sm">
-                                            PDF
-                                        </a>
-                                    @endif
+                                    {{-- ... --}}
                                 </div>
                             </li>
                         @endforeach

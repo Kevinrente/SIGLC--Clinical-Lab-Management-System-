@@ -16,13 +16,13 @@ class StorePacienteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'identificacion' => ['required', 'string', 'max:20', 'unique:pacientes,identificacion'],
-            'nombre' => ['required', 'string', 'max:255'],
-            'apellido' => ['required', 'string', 'max:255'],
-            'fecha_nacimiento' => ['required', 'date', 'before_or_equal:' . now()->toDateString()],
-            'sexo' => ['required', 'in:M,F,Otro'],
-            'telefono' => ['nullable', 'string', 'max:50'],
-            'email' => ['required', 'email', 'max:255', 'unique:pacientes,email'],
+            'nombre' => 'required|string|max:255',
+            'apellido' => 'required|string|max:255',
+            'cedula' => 'required|string|unique:pacientes,cedula',
+            'email' => 'required|email|unique:users,email',
+            'fecha_nacimiento' => 'required|date',
+            'sexo' => 'required|string',   // <--- Verifica que esté aquí
+            'telefono' => 'nullable|string', // <--- Verifica que esté aquí
         ];
     }
     // ... Puedes añadir messages() aquí si lo deseas ...

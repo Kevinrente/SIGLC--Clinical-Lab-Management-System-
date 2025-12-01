@@ -8,29 +8,30 @@ class StoreConsultaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // Solo los Doctores pueden registrar consultas
-        return $this->user()->can('gestion.consultas');
+        return true;
     }
 
     public function rules(): array
     {
         return [
-            // --------------------------------------------------------
-            // REGLAS CRÍTICAS PARA EVITAR EL ERROR "NOT NULL VIOLATION"
-            // --------------------------------------------------------
+            'cita_id' => 'required|exists:citas,id',
+            'paciente_id' => 'required|exists:pacientes,id',
             
-            // Campos de texto de la consulta (Requeridos según la estructura del formulario)
-            'sintomas' => ['required', 'string', 'max:1000'],
-            'diagnostico' => ['required', 'string', 'max:500'], // <-- CORRECCIÓN: DEBE SER REQUIRED
-            'tratamiento' => ['required', 'string', 'max:1000'],
-
-            // Relaciones
-            'cita_id' => ['nullable', 'exists:citas,id'],
-            'paciente_id' => ['required', 'exists:pacientes,id'],
+            // 1. Campos de Texto (SOLO ESTOS)
+            'motivo_consulta' => 'required|string',
+            'exploracion_fisica' => 'nullable|string',
             
-            // Opcional: Solicitud de Exámenes (asumiendo que solo se envía una lista de IDs)
-            'examenes_solicitados' => ['nullable', 'array'],
-            'examenes_solicitados.*' => ['integer', 'exists:examens,id'], 
+            // 2. Diagnósticos Nuevos
+            'diagnostico_presuntivo' => 'nullable|string|max:255',
+            'diagnostico_confirmado' => 'required|string|max:255',
+            
+            // 3. Receta (Opcional)
+            'receta' => 'nullable|array', 
+            'receta.*.medicamento' => 'nullable|string', 
+            'receta.*.indicacion' => 'nullable|string',
+            
+            // 4. Acción
+            'action' => 'nullable|string|in:finish,order',
         ];
     }
     

@@ -12,7 +12,21 @@ class Consulta extends Model
     use HasFactory;
 
     protected $fillable = [
-        'cita_id', 'paciente_id', 'doctor_id', 'sintomas', 'diagnostico', 'tratamiento'
+        'cita_id',
+        'doctor_id',
+        'paciente_id',
+        'motivo_consulta',
+        'exploracion_fisica',      // <--- NUEVO
+        'diagnostico_presuntivo',  // <--- NUEVO
+        'diagnostico_confirmado',  // <--- RENOMBRADO
+        'receta_medica',           // <--- NUEVO (JSON)
+        'pagado'
+    ];
+
+    // ESTO ES CLAVE PARA LA RECETA DINÁMICA
+    protected $casts = [
+        'receta_medica' => 'array', // Laravel convierte JSON <-> Array automáticamente
+        'pagado' => 'boolean',
     ];
 
     public function paciente(): BelongsTo
@@ -33,5 +47,11 @@ class Consulta extends Model
     public function ordenesExamen(): HasMany 
     {
         return $this->hasMany(OrdenExamen::class);
+    }
+
+    // Relación con el Pago
+    public function pago()
+    {
+        return $this->morphOne(Pago::class, 'payable');
     }
 }

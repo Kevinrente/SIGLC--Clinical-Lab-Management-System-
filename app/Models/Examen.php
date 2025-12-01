@@ -4,18 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany; // <-- ¡ESTA ES LA LÍNEA QUE FALTA!
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Examen extends Model
 {
     use HasFactory;
-    
-    protected $fillable = ['nombre', 'codigo', 'precio', 'tiempo_entrega_dias'];
 
-    // Puede ser parte de muchas órdenes
-    public function ordenes(): HasMany // <-- Ahora el tipo HasMany está resuelto
-    { 
-        return $this->hasMany(OrdenExamen::class); 
+    protected $casts = [
+    'campos_dinamicos' => 'array', // Convertirá el JSON a Array PHP
+    ];
+
+    protected $fillable = [
+        'nombre', 'categoria', 'precio', 
+        'unidades', 'valor_referencia', 'campos_dinamicos' // <--- Agregados
+    ];
+
+    /**
+     * Relación muchos a muchos con OrdenExamen.
+     * Un examen puede estar presente en múltiples órdenes.
+     */
+    public function ordenes(): BelongsToMany
+    {
+        return $this->belongsToMany(OrdenExamen::class, 'orden_examen_examen');
     }
 }
 

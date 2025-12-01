@@ -9,7 +9,7 @@ use App\Http\Requests\StoreCitaRequest;
 use App\Http\Requests\UpdateCitaRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon; // <-- AGREGADO: Necesario para la conversión de fechas en store()
+use Carbon\Carbon; 
 
 class CitaController extends Controller
 {
@@ -23,49 +23,30 @@ class CitaController extends Controller
         ];
     }
     
-    // app/Http/Controllers/CitaController.php
-
-    public function index(Request $request)
+    /**
+     * Muestra el listado de citas en formato tabla.
+     */
+    public function index()
     {
-        $user = Auth::user();
+        $user = \Illuminate\Support\Facades\Auth::user();
         
-        // Asumiendo que hasRole('Doctor') funciona correctamente
-        $isDoctor = $user->hasRole('Doctor');
+        // Iniciamos la consulta
+        $query = \App\Models\Cita::with(['paciente', 'doctor.usuario'])
+            ->orderBy('fecha_hora', 'asc'); // Las más próximas primero
 
-        $doctorId = null;
-        
-        if ($isDoctor) {
-            // CORRECCIÓN 1: Evitar el error si el User no tiene relación 'doctor'.
-            // Aquí se requiere que el modelo User tenga una relación hasOne con Doctor.
-            $doctorModel = $user->doctor ?? null;
-            if ($doctorModel) {
-                $doctorId = $doctorModel->id; 
-            }
+        // Si es Doctor, solo ve sus citas
+        if ($user->doctor) {
+            $query->where('doctor_id', $user->doctor->id);
         }
-        
-        // Si el Admin/Recepción envían un filtro, este tiene prioridad.
-        // Si es un Doctor, $doctorId ya tiene su propio ID si no se filtra.
-        $doctorId = $request->input('doctor_id', $doctorId);
+        // Si es Paciente, solo ve las suyas
+        elseif ($user->paciente) {
+            $query->where('paciente_id', $user->paciente->id);
+        }
+        // (El Admin ve todas)
 
-        $fecha = $request->input('fecha') ?? now()->toDateString();
-        
-        // CORRECCIÓN 2: Eager Loading para evitar el error N+1 y el RelationNotFoundException.
-        // Se asegura que los datos de paciente y doctor se carguen con la consulta principal.
-        $citasQuery = Cita::with(['paciente', 'doctor']) 
-            ->whereDate('fecha_hora', $fecha)
-            ->orderBy('fecha_hora');
-        
-        if ($doctorId) {
-            $citasQuery->where('doctor_id', $doctorId);
-        }
-        
-        // Citas para la vista
-        $citas = $citasQuery->paginate(20);
-        
-        // Datos para filtros
-        $doctors = Doctor::orderBy('apellido')->get();
-        
-        return view('citas.index', compact('citas', 'doctors', 'fecha', 'doctorId'));
+        $citas = $query->paginate(15);
+
+        return view('citas.index', compact('citas'));
     }
 
     public function create()
@@ -76,25 +57,75 @@ class CitaController extends Controller
         return view('citas.create', compact('pacientes', 'doctors'));
     }
 
-    // app/Http/Controllers/CitaController.php
-
-    public function store(StoreCitaRequest $request)
+    public function store(Request $request)
     {
-        $validated = $request->validated();
+        $user = \Illuminate\Support\Facades\Auth::user();
 
-        // CORRECCIÓN 3: Ajustar la conversión de fecha/hora para coincidir con la sanitización y la DB
-        // Usamos el formato FINAL que resulta de la sanitización: d/m/Y h:i A (ej: 10/11/2025 04:30 PM)
-        $validated['fecha_hora'] = Carbon::createFromFormat('d/m/Y h:i A', $validated['fecha_hora'])->format('Y-m-d H:i:s');
+        // 1. Validación de Datos
+        $request->validate([
+            'doctor_id' => 'required|exists:doctors,id',
+            'fecha_hora' => 'required|date', 
+            'motivo' => 'nullable|string|max:255',
+            'estado' => 'nullable|string|in:Pendiente,Confirmada', // Validamos el estado
+        ]);
 
-        Cita::create($validated);
+        try {
+            // 2. VALIDACIÓN DE DISPONIBILIDAD (Anti-Choques)
+            $fechaHora = \Carbon\Carbon::parse($request->fecha_hora);
+            
+            $citaExistente = \App\Models\Cita::where('doctor_id', $request->doctor_id)
+                ->where('estado', '!=', 'Cancelada')
+                ->where(function ($query) use ($fechaHora) {
+                    $query->whereBetween('fecha_hora', [
+                        $fechaHora->copy()->subMinutes(29), 
+                        $fechaHora->copy()->addMinutes(29)
+                    ]);
+                })
+                ->exists();
 
-        return redirect()->route('citas.index', ['fecha' => Carbon::parse($validated['fecha_hora'])->toDateString()])
-            ->with('success', 'Cita agendada exitosamente.');
+            if ($citaExistente) {
+                return back()->with('error', 'Lo sentimos, este horario ya ha sido ocupado.');
+            }
+
+            // 3. Determinar Paciente y Estado
+            $pacienteId = null;
+            $estado = 'Pendiente'; // Por defecto
+
+            if ($user->paciente) {
+                // Si es paciente: Forzamos SU id y estado Pendiente
+                $pacienteId = $user->paciente->id;
+                $estado = 'Pendiente'; 
+            } else {
+                // Si es Doctor/Admin: Usamos el paciente del select y el estado seleccionado
+                $request->validate(['paciente_id' => 'required|exists:pacientes,id']);
+                $pacienteId = $request->paciente_id;
+                $estado = $request->estado ?? 'Pendiente';
+            }
+
+            // 4. Crear la Cita
+            \App\Models\Cita::create([
+                'paciente_id' => $pacienteId,
+                'doctor_id' => $request->doctor_id,
+                'fecha_hora' => $fechaHora,
+                'motivo' => $request->motivo,
+                'estado' => $estado, 
+            ]);
+
+            return redirect()->back()->with('success', '¡Cita agendada correctamente!');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Ocurrió un error al reservar: ' . $e->getMessage());
+        }
     }
+
     
     public function show(Cita $cita)
     {
-        $cita->load(['paciente', 'doctor', 'ordenesExamen']);
+        // CORRECCIÓN: Cargamos todas las relaciones necesarias para la vista show
+        // 'consulta' se agrega para verificar si existe una nota médica
+        // 'ordenesExamen.examenes' carga el catálogo de exámenes dentro de las órdenes
+        $cita->load(['paciente', 'doctor', 'ordenesExamen.examenes', 'consulta']); 
+
         return view('citas.show', compact('cita'));
     }
 
@@ -108,15 +139,14 @@ class CitaController extends Controller
 
     public function update(UpdateCitaRequest $request, Cita $cita)
     {
-            $validated = $request->validated();
-    
-        // CONVERSIÓN FINAL: Usamos Carbon::parse(), que puede interpretar '11:00 a. m.'
-        $validated['fecha_hora'] = \Carbon\Carbon::parse($validated['fecha_hora'])->format('Y-m-d H:i:s');
+        $validated = $request->validated();
+        
+        // CORRECCIÓN: Conversión robusta de fecha
+        $validated['fecha_hora'] = Carbon::parse($validated['fecha_hora'])->format('Y-m-d H:i:s');
         
         $cita->update($validated);
-        // ...
         
-        return redirect()->route('citas.index', ['fecha' => \Carbon\Carbon::parse($validated['fecha_hora'])->toDateString()])
+        return redirect()->route('citas.index', ['fecha' => Carbon::parse($validated['fecha_hora'])->toDateString()])
             ->with('success', 'Cita actualizada exitosamente.');
     }
 
@@ -126,5 +156,63 @@ class CitaController extends Controller
         
         return redirect()->route('citas.index')
             ->with('success', 'Cita cancelada y eliminada correctamente.');
+    }
+
+    /**
+     * Muestra la vista del calendario visual.
+     */
+    public function calendario()
+    {
+        return view('citas.calendario');
+    }
+
+    /**
+     * Devuelve las citas en formato JSON para FullCalendar.
+     */
+    public function getEvents(Request $request)
+    {
+        $citas = \App\Models\Cita::with(['paciente', 'doctor.usuario'])
+            ->where('estado', '!=', 'Cancelada')
+            ->get();
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $miPacienteId = $user->paciente ? $user->paciente->id : null;
+
+        $eventos = [];
+
+        foreach ($citas as $cita) {
+            if (!$cita->paciente) continue;
+
+            if ($miPacienteId) {
+                // VISTA PACIENTE
+                if ($cita->paciente_id == $miPacienteId) {
+                    $titulo = 'Mi Cita - Dr. ' . ($cita->doctor->usuario->name ?? '?');
+                    $color = '#10b981'; // Verde
+                    $display = 'block'; 
+                } else {
+                    $titulo = 'Ocupado';
+                    $color = '#d1d5db'; // Gris
+                    $display = 'background'; 
+                }
+            } else {
+                // VISTA DOCTOR
+                $titulo = $cita->paciente->nombre . ' ' . $cita->paciente->apellido;
+                $color = ($cita->estado == 'Completada') ? '#10b981' : '#3788d8';
+                $display = 'block';
+            }
+
+            $eventos[] = [
+                'id' => $cita->id,
+                'title' => $titulo,
+                // CORRECCIÓN DE HORA: Usamos format simple para evitar restas de zona horaria
+                'start' => $cita->fecha_hora->format('Y-m-d H:i:s'),
+                'end' => $cita->fecha_hora->copy()->addMinutes(30)->format('Y-m-d H:i:s'),
+                'backgroundColor' => $color,
+                'borderColor' => $color,
+                'display' => $display, 
+            ];
+        }
+
+        return response()->json($eventos);
     }
 }

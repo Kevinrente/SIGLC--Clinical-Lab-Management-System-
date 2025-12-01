@@ -4,80 +4,102 @@ namespace App\Http\Controllers;
 
 use App\Models\Cita;
 use App\Models\OrdenExamen;
+use App\Models\Examen; // <-- Importar el modelo del catálogo
 use App\Http\Requests\StoreOrdenExamenRequest;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\Eloquent\Relations\HasOne; // <-- AGREGADO: Para hinting en el user->doctor
+use Illuminate\Support\Facades\DB;
 
 class OrdenExamenController extends Controller
 {
-    /**
-     * Aplica el middleware de permisos usando el método estático.
-     */
     public static function middleware(): array
     {
-        // El permiso 'gestion.consultas' está asignado al Doctor.
         return [
             'can:gestion.consultas', 
         ];
     }
     
-    // Muestra el formulario de creación (generalmente desde la vista de la cita)
     public function create(Cita $cita)
     {
-        // 1. Obtener el usuario y tipar para evitar errores de IDE
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Carga anticipada de las relaciones necesarias para la vista y la lógica
-        $cita->load('paciente', 'doctor'); 
-        
-        // CORRECCIÓN 1: Unificar la verificación del Doctor logueado
-        
-        // Verifica si el usuario autenticado tiene un registro Doctor vinculado
-        // Y verifica si el ID del doctor logueado es el mismo que el de la cita
+        // 1. Validaciones de seguridad (Igual que antes)
         if (!$user->doctor || $user->doctor->id !== $cita->doctor_id) {
-             abort(403, 'No tienes permiso para generar órdenes para esta cita o tu cuenta no está vinculada a un perfil de doctor.');
+             abort(403, 'No tienes permiso para generar órdenes para esta cita.');
         }
         
-        // La vista de creación requiere que se pase el objeto Cita
-        return view('ordenes.create', compact('cita'));
+        $cita->load('paciente', 'doctor');
+
+        // 2. CARGAR EL CATÁLOGO DE EXÁMENES
+        // Obtenemos todos y los agrupamos por categoría para la vista
+        // Esto genera una colección tipo: ['Hematología' => [Examen1, Examen2], 'Química' => [...]]
+        $examenesPorCategoria = Examen::orderBy('nombre')->get()->groupBy('categoria');
+        return view('ordenes.create', compact('cita', 'examenesPorCategoria'));    
     }
 
-    // Lógica para guardar la orden de examen
+    public function createDirecto(\App\Models\Paciente $paciente)
+    {
+        // Cargamos categorías para el formulario
+        $examenesPorCategoria = \App\Models\Examen::all()->groupBy('categoria');
+        
+        // Cargamos lista de doctores por si quieren referir a alguien (opcional)
+        $doctores = \App\Models\Doctor::with('usuario')->get();
+
+        return view('ordenes.create_directo', compact('paciente', 'examenesPorCategoria', 'doctores'));
+    }
+
     public function store(StoreOrdenExamenRequest $request)
     {
-        /** @var \App\Models\User $user */
         $user = Auth::user();
         $validated = $request->validated();
-        
-        // La validación ya asegura que la cita_id existe.
-        $cita = Cita::findOrFail($validated['cita_id']);
-        
-        // CORRECCIÓN 2: Eliminamos la verificación redundante
-        // La autorización RBAC ('can:gestion.consultas') y el StoreOrdenExamenRequest::authorize()
-        // ya validan el permiso y el doctor asignado, haciendo esta verificación redundante.
-        /*
-        if ($user->doctor->id !== $cita->doctor_id) {
-            return back()->with('error', 'La orden solo puede ser emitida por el doctor asignado a la cita.');
+
+        // 1. LÓGICA DE DOCTOR INTELIGENTE
+        $doctorId = null;
+
+        // Caso A: El usuario logueado ES un doctor (está en su consultorio)
+        if ($user->doctor) {
+            $doctorId = $user->doctor->id;
+        } 
+        // Caso B: El usuario es Laboratorista/Admin y seleccionó un doctor en el select
+        elseif ($request->filled('doctor_id')) {
+            $doctorId = $request->doctor_id;
         }
-        */
+        // Caso C: No hay doctor (Paciente particular), $doctorId se queda NULL.
 
-        // 1. Crear la Orden de Examen
-        // CORRECCIÓN 3: Usamos el ID del doctor logueado (que ya sabemos que es el correcto)
-        $doctorModel = $user->doctor; 
+        DB::beginTransaction();
 
-        OrdenExamen::create([
-            'cita_id' => $cita->id,
-            'doctor_id' => $doctorModel->id, // Usamos el ID del modelo Doctor
-            'paciente_id' => $cita->paciente_id,
-            'examenes_solicitados' => $validated['examenes_solicitados'],
-            'estado' => 'Solicitado', 
-        ]);
+        try {
+            // Obtenemos nombres para el resumen de texto
+            $nombresExamenes = \App\Models\Examen::whereIn('id', $validated['examenes'])->pluck('nombre')->join(', ');
 
-        // 2. Redirigir al detalle de la cita
-        return redirect()->route('citas.show', $cita)->with('success', '¡Orden de examen generada con éxito y enviada al Laboratorio!');
+            // Crear la Orden
+            $orden = \App\Models\OrdenExamen::create([
+                'cita_id' => $validated['cita_id'] ?? null, // Puede ser null
+                'doctor_id' => $doctorId,                   // Puede ser null
+                'paciente_id' => $validated['paciente_id'], // Obligatorio
+                'examenes_solicitados' => $nombresExamenes, 
+                'estado' => 'Solicitado',
+                'pagado' => false // Por defecto no está pagado
+            ]);
+
+            // Guardar en tabla pivote
+            $orden->examenes()->sync($validated['examenes']);
+
+            DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error al guardar: ' . $e->getMessage());
+        }
+
+        // Redirección inteligente
+        if(auth()->user()->hasPermissionTo('gestion.laboratorio')) {
+            return redirect()->route('laboratorio.index')->with('success', 'Orden creada exitosamente.');
+        }
+
+        // Si es doctor, volvemos a la cita (si existe) o al dashboard
+        return redirect()->back()->with('success', 'Orden generada correctamente.');
     }
     
-    // ... (otros métodos) ...
+    // ... otros métodos (index, show) ...
 }

@@ -8,20 +8,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Paciente extends Model
 {
-    use HasFactory;
-
+    // 1. Agrega 'user_id' aquí
     protected $fillable = [
-        'identificacion', 'nombre', 'apellido', 'fecha_nacimiento', 
-        'sexo', 'telefono', 'email'
+        'user_id',          // <--- El que agregamos para el login
+        'nombre',
+        'apellido',
+        'cedula',           // <--- La que renombramos
+        'fecha_nacimiento',
+        'email',
+        'sexo',             // <--- FALTABA ESTE
+        'telefono',         // <--- FALTABA ESTE
+        'direccion',        // (Agrégalo si lo tienes en tu formulario)
+        'grupo_sanguineo',  // (Agrégalo si lo tienes en tu formulario)
     ];
 
-    public function citas(): HasMany
-    {
-        return $this->hasMany(Cita::class);
-    }
+    // ... otras relaciones ...
 
-    public function consultas(): HasMany
+    // 2. Agrega esta relación
+    public function user()
     {
-        return $this->hasMany(Consulta::class);
+        return $this->belongsTo(User::class);
     }
 }

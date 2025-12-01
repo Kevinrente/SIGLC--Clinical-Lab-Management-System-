@@ -15,5 +15,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MedicalRolesAndPermissionsSeeder::class,
         ]);
+
+        $this->call([
+            // Agrega esta línea:
+            ExamenSeeder::class,
+        ]);
     }
 }

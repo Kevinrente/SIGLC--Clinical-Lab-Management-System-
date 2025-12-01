@@ -1,56 +1,103 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Subir Resultado Orden #') . $ordenExamen->id }}
+            {{ __('Cargar Resultados de Laboratorio') }}
         </h2>
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white p-6 shadow-xl sm:rounded-lg">
-                
-                @error('general')
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                        <span class="block sm:inline">{{ $message }}</span>
-                    </div>
-                @enderror
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 bg-white border-b border-gray-200">
 
-                <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detalle: {{ $ordenExamen->paciente->nombre_completo ?? 'N/A' }}</h3>
-                <p class="mb-4 text-sm text-gray-600">Exámenes Solicitados: **{{ $ordenExamen->examenes_solicitados }}**</p>
-
-                <form action="{{ route('laboratorio.storeResultado', $ordenExamen) }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    
-                    <div class="mb-4">
-                        <label for="estado_actual" class="block text-gray-700 text-sm font-bold mb-2">Cambiar Estado:</label>
-                        <select name="estado_actual" id="estado_actual" required 
-                                class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('estado_actual') border-red-500 @enderror">
-                            <option value="Muestra Tomada" @if($ordenExamen->estado == 'Muestra Tomada') selected @endif>Muestra Tomada</option>
-                            <option value="En Análisis" @if($ordenExamen->estado == 'En Análisis') selected @endif>En Análisis</option>
-                            <option value="Finalizado">Finalizado (Adjuntar Resultado)</option>
-                        </select>
-                        @error('estado_actual')<p class="text-red-500 text-xs italic">{{ $message }}</p>@enderror
+                    {{-- Encabezado con datos del Paciente --}}
+                    <div class="mb-8 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <h3 class="text-lg font-bold text-blue-800 mb-2">Orden #{{ $orden->id }} - {{ $orden->paciente->nombre }} {{ $orden->paciente->apellido }}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-700">
+                            <p><strong>Doctor:</strong> {{ $orden->doctor->usuario->name ?? 'N/A' }}</p>
+                            <p><strong>Fecha Solicitud:</strong> {{ $orden->created_at->format('d/m/Y H:i') }}</p>
+                            <p><strong>Edad:</strong> {{ $orden->paciente->edad }} años</p>
+                        </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="resultado_file" class="block text-gray-700 text-sm font-bold mb-2">
-                            Adjuntar Archivo de Resultado (PDF/JPG/PNG):
-                        </label>
-                        <input type="file" name="resultado_file" id="resultado_file" 
-                               class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('resultado_file') border-red-500 @enderror">
-                        <p class="text-xs text-gray-500 mt-1">Solo requerido al cambiar a estado 'Finalizado'. Máx 5MB.</p>
-                        @error('resultado_file')<p class="text-red-500 text-xs italic">{{ $message }}</p>@enderror
-                    </div>
+                    <form action="{{ route('laboratorio.update', $orden->id) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        @method('PUT')
 
-                    <div class="flex items-center justify-between mt-6">
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                            Guardar Cambios y Archivo
-                        </button>
-                        <a href="{{ route('laboratorio.index') }}" class="inline-block align-baseline font-bold text-sm text-gray-600 hover:text-gray-800">
-                            Volver
-                        </a>
-                    </div>
-                </form>
+                        {{-- Iteramos sobre los exámenes de la orden --}}
+                        <div class="space-y-8">
+                            @foreach($orden->examenes as $examen)
+                                <div class="border rounded-lg p-5 shadow-sm hover:shadow-md transition">
+                                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                                        <h4 class="text-xl font-bold text-indigo-700">{{ $examen->nombre }}</h4>
+                                        <span class="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-500">
+                                            Ref: {{ $examen->valor_referencia ?? 'N/A' }}
+                                        </span>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {{-- CASO 1: Examen Complejo (Tiene campos dinámicos en JSON) --}}
+                                        @if(!empty($examen->campos_dinamicos))
+                                            @foreach($examen->campos_dinamicos as $campo)
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                        {{ $campo }}
+                                                    </label>
+                                                    <input type="text" 
+                                                           {{-- Guardamos como array asociativo: resultados[examen_id][nombre_campo] --}}
+                                                           name="resultados[{{ $examen->id }}][{{ $campo }}]"
+                                                           class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                           placeholder="Ingrese valor..."
+                                                           required>
+                                                </div>
+                                            @endforeach
+
+                                        {{-- CASO 2: Examen Simple (Solo un valor) --}}
+                                        @else
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                    Resultado
+                                                </label>
+                                                <div class="flex rounded-md shadow-sm">
+                                                    <input type="text" 
+                                                           name="resultados[{{ $examen->id }}][valor]"
+                                                           class="flex-1 rounded-none rounded-l-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                           placeholder="Ej: 95"
+                                                           required>
+                                                    <span class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                                        {{ $examen->unidades ?? '-' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        {{-- Campo de Observaciones (Opcional por cada examen) --}}
+                                        <div class="md:col-span-2 mt-2">
+                                            <label class="block text-xs text-gray-500">Observaciones (Opcional)</label>
+                                            <input type="text" 
+                                                   name="observaciones[{{ $examen->id }}]" 
+                                                   class="w-full mt-1 text-sm border-gray-200 rounded focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                                   placeholder="Notas internas...">
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        {{-- Acciones Finales --}}
+                        <div class="mt-8 flex justify-end items-center gap-4 border-t pt-6">
+                            <a href="{{ route('laboratorio.index') }}" class="text-gray-600 hover:text-gray-900">Cancelar</a>
+                            
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded shadow-lg flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                                Guardar Resultados y Generar PDF
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
             </div>
         </div>
     </div>

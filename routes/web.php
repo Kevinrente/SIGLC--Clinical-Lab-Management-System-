@@ -8,29 +8,23 @@ use App\Http\Controllers\CitaController;
 use App\Http\Controllers\ConsultaController;
 use App\Http\Controllers\LaboratorioController;
 use App\Http\Controllers\ExamenController;
-// NUEVAS IMPORTACIONES
-use App\Http\Controllers\OrdenExamenController; 
+use App\Http\Controllers\OrdenExamenController;
+use App\Http\Controllers\PagoController; // Importante: Módulo de Caja
+use App\Http\Controllers\DashboardController; // Importante: Nuevo Dashboard
 use App\Models\Paciente;
 use App\Models\Cita;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-// DASHBOARD: Lógica de contadores
-Route::get('/dashboard', function () {
-    // Obtenemos los contadores activos
-    $totalPacientes = Paciente::count();
-    // Usamos now() para asegurarnos que solo cuenta las de hoy
-    $totalCitasHoy = Cita::whereDate('fecha_hora', now()->toDateString())
-                         ->where('estado', 'Pendiente')
-                         ->count();
-
-    return view('dashboard', [
-        'totalPacientes' => $totalPacientes,
-        'totalCitasHoy' => $totalCitasHoy,
-    ]);
-})->middleware(['auth', 'verified'])->name('dashboard');
+// ====================================================================
+// DASHBOARD (CORREGIDO: Usando el Controlador)
+// ====================================================================
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 
 Route::middleware('auth')->group(function () {
@@ -40,30 +34,50 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     // PACIENTES Y DOCTORES
+    Route::get('/mis-resultados', [PacienteController::class, 'misResultados'])->name('pacientes.portal');
     Route::resource('pacientes', PacienteController::class);
     Route::resource('doctors', DoctorController::class);
     
-    // CITAS Y CONSULTAS
+    // CITAS Y AGENDA
+    Route::get('/agenda', [CitaController::class, 'calendario'])->name('citas.calendario');
+    Route::get('/api/citas-events', [CitaController::class, 'getEvents'])->name('citas.events');
+    
     Route::resource('citas', CitaController::class);
     Route::resource('consultas', ConsultaController::class);
     Route::get('citas/{cita}/consulta/create', [ConsultaController::class, 'createFromCita'])->name('consultas.createFromCita');
     
     // ====================================================================
-    // GESTIÓN DE ÓRDENES DE EXAMEN (FLUJO DOCTOR -> LABORATORIO)
+    // GESTIÓN DE ÓRDENES (DOCTOR Y LABORATORIO)
     // ====================================================================
-
-    // RUTA 1: [DOCTOR] Muestra el formulario para crear una orden desde una cita
+    // Ruta para pacientes directos (Laboratorio)
+    Route::get('pacientes/{paciente}/orden-rapida', [OrdenExamenController::class, 'createDirecto'])->name('ordenes.createDirecto');
+    // Rutas estándar
     Route::get('citas/{cita}/ordenes/create', [OrdenExamenController::class, 'create'])->name('ordenes.create'); 
-    
-    // RUTA 2: [DOCTOR] Almacena la nueva orden (Acción de POST)
     Route::post('ordenes', [OrdenExamenController::class, 'store'])->name('ordenes.store');
     
-    // 3. LABORATORIO: Listado y Gestión de Resultados
+    // ====================================================================
+    // LABORATORIO: Listado y Gestión de Resultados
+    // ====================================================================
     Route::get('laboratorio', [LaboratorioController::class, 'index'])->name('laboratorio.index');
+    
+    // 1. Mostrar formulario
     Route::get('laboratorio/subir/{ordenExamen}', [LaboratorioController::class, 'editResultado'])->name('laboratorio.subirResultado');
-    Route::post('laboratorio/subir/{ordenExamen}', [LaboratorioController::class, 'storeResultado'])->name('laboratorio.storeResultado');
+    
+    // 2. Guardar y Generar PDF
+    Route::put('laboratorio/subir/{id}', [LaboratorioController::class, 'update'])->name('laboratorio.update');
+    
+    // 3. Descargar PDF
     Route::get('laboratorio/resultado/{ordenExamen}/descargar', [LaboratorioController::class, 'downloadResultado'])->name('laboratorio.downloadResultado');
     
+    // ====================================================================
+    // MÓDULO DE CAJA (PAGOS)
+    // ====================================================================
+    Route::get('pagos/cobrar/orden/{orden}', [PagoController::class, 'createForOrden'])->name('pagos.orden.create');
+    Route::post('pagos/orden', [PagoController::class, 'storeOrden'])->name('pagos.orden.store');
+
+    // RUTAS DE COBRO DE CONSULTAS
+    Route::get('pagos/cobrar/consulta/{consulta}', [PagoController::class, 'createForConsulta'])->name('pagos.consulta.create');
+    Route::post('pagos/consulta', [PagoController::class, 'storeConsulta'])->name('pagos.consulta.store');
     // Catálogo de Exámenes
     Route::resource('examenes', ExamenController::class)->only(['index', 'create', 'store', 'edit', 'update'])->names([
         'index' => 'examenes.index',
@@ -72,6 +86,9 @@ Route::middleware('auth')->group(function () {
         'edit' => 'examenes.edit',
         'update' => 'examenes.update',
     ]);
+
+    // Ruta para descargar receta médica (accesible para Paciente y Doctor)
+    Route::get('consultas/{consulta}/receta', [ConsultaController::class, 'downloadReceta'])->name('consultas.receta.pdf');
 });
 
 require __DIR__.'/auth.php';

@@ -37,4 +37,8 @@ class User extends Authenticatable
         // La clave foránea 'user_id' está en la tabla 'doctors'
         return $this->hasOne(Doctor::class); 
     }
+
+    public function paciente() { 
+        return $this->hasOne(Paciente::class); 
+    }
 }

@@ -31,18 +31,18 @@ class ExamenController extends Controller
 
     public function store(Request $request)
     {
-        // Usamos Request básico, ya que este es un módulo administrativo interno simple.
-        $request->validate([
-            'nombre' => 'required|string|max:255|unique:examens,nombre',
-            'codigo' => 'nullable|string|max:50',
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'categoria' => 'required|string|max:100',
             'precio' => 'required|numeric|min:0',
-            'tiempo_entrega_dias' => 'required|integer|min:1',
+            // NUEVOS CAMPOS (Nullables = Opcionales)
+            'unidades' => 'nullable|string|max:50',       // Ej: mg/dL
+            'valor_referencia' => 'nullable|string|max:100', // Ej: 70 - 110
         ]);
-        
-        Examen::create($request->all());
 
-        return redirect()->route('examenes.index')
-            ->with('success', 'Examen de laboratorio agregado exitosamente.');
+        \App\Models\Examen::create($validated);
+
+        return redirect()->route('examenes.index')->with('success', 'Examen creado correctamente.');
     }
     
     public function edit(Examen $examen)
@@ -50,20 +50,20 @@ class ExamenController extends Controller
         return view('examenes.edit', compact('examen'));
     }
 
-    public function update(Request $request, Examen $examen)
+    public function update(Request $request, \App\Models\Examen $examene) // O $examen según tu ruta
     {
-        // Usamos Request básico con unicidad ignorando el ID actual.
-        $request->validate([
-            'nombre' => 'required|string|max:255|unique:examens,nombre,' . $examen->id,
-            'codigo' => 'nullable|string|max:50',
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'categoria' => 'required|string|max:100',
             'precio' => 'required|numeric|min:0',
-            'tiempo_entrega_dias' => 'required|integer|min:1',
+            // NUEVOS CAMPOS
+            'unidades' => 'nullable|string|max:50',
+            'valor_referencia' => 'nullable|string|max:100',
         ]);
 
-        $examen->update($request->all());
-        
-        return redirect()->route('examenes.index')
-            ->with('success', 'Examen actualizado exitosamente.');
+        $examene->update($validated);
+
+        return redirect()->route('examenes.index')->with('success', 'Examen actualizado correctamente.');
     }
 
     // El método destroy se omite en las rutas (.only) para forzar la desactivación en un sistema real

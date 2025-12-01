@@ -14,10 +14,9 @@ return new class extends Migration
         // En la función up()
         Schema::create('examens', function (Blueprint $table) {
             $table->id();
-            $table->string('nombre')->unique();
-            $table->string('codigo')->nullable();
-            $table->decimal('precio', 8, 2);
-            $table->integer('tiempo_entrega_dias')->default(1);
+            $table->string('nombre'); // Ej: Hemograma Completo
+            $table->string('categoria'); // Ej: Hematología, Bioquímica
+            $table->decimal('precio', 8, 2)->nullable(); // Opcional
             $table->timestamps();
         });
     }

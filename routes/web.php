@@ -66,6 +66,7 @@ Route::middleware('auth')->group(function () {
     
     // Reportes
     Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
+    Route::get('/reportes/honorarios', [ReporteController::class, 'honorarios'])->name('reportes.honorarios');
     // ====================================================================
     // GESTIÓN DE ÓRDENES (DOCTOR Y LABORATORIO)
     // ====================================================================

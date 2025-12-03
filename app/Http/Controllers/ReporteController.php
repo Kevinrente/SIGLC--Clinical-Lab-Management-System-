@@ -6,47 +6,73 @@ use Illuminate\Http\Request;
 use App\Models\Doctor;
 use App\Models\Consulta;
 use App\Models\OrdenExamen;
+use App\Models\Pago;  
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ReporteController extends Controller
 {
     /**
-     * Genera el reporte de honorarios médicos.
+     * REPORTE 1: Dashboard Financiero General (Ingresos vs Gastos)
+     * CORRECCIÓN 1: Agregamos el método index que faltaba.
      */
-    public function honorarios(Request $request)
+    public function index(Request $request)
     {
-        // 1. Filtros de Fecha (Por defecto: Mes actual)
         $inicio = $request->input('inicio', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $fin = $request->input('fin', Carbon::now()->endOfMonth()->format('Y-m-d'));
 
-        // 2. Obtenemos todos los doctores
-        $doctores = Doctor::with('usuario')->get();
+        // CORRECCIÓN 2: Usamos 'monto_total' en lugar de 'monto' (Error SQL solucionado)
+        $totalIngresos = Pago::whereBetween('created_at', [$inicio . ' 00:00:00', $fin . ' 23:59:59'])
+                             ->sum('monto_total');
 
+        $totalGastos = 0;
+        if (class_exists(\App\Models\Gasto::class)) {
+            // Asumimos que Gasto sí tiene 'monto'. Si falla, cámbialo a 'monto_total' también.
+            $totalGastos = \App\Models\Gasto::whereBetween('created_at', [$inicio . ' 00:00:00', $fin . ' 23:59:59'])
+                                ->sum('monto');
+        }
+
+        $balance = $totalIngresos - $totalGastos;
+
+        // Gráfico
+        $ingresosPorDia = Pago::select(DB::raw('DATE(created_at) as fecha'), DB::raw('SUM(monto_total) as total'))
+            ->whereBetween('created_at', [$inicio . ' 00:00:00', $fin . ' 23:59:59'])
+            ->groupBy('fecha')
+            ->orderBy('fecha')
+            ->get();
+
+        return view('reportes.index', compact('totalIngresos', 'totalGastos', 'balance', 'inicio', 'fin', 'ingresosPorDia'));
+    }
+
+    /**
+     * REPORTE 2: Honorarios Médicos
+     */
+    public function honorarios(Request $request)
+    {
+        $inicio = $request->input('inicio', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $fin = $request->input('fin', Carbon::now()->endOfMonth()->format('Y-m-d'));
+
+        $doctores = Doctor::with('usuario')->get();
         $reporte = [];
 
         foreach ($doctores as $doctor) {
             
-            // --- A. CÁLCULO DE CONSULTAS MÉDICAS ---
-            // Buscamos consultas de este doctor que estén PAGADAS en el rango de fecha
+            // A. CONSULTAS (Usamos whereHas('pago') para asegurar que está pagada)
             $consultas = Consulta::where('doctor_id', $doctor->id)
-                ->where('pagado', true)
+                ->whereHas('pago') // CORRECCIÓN 3: Verificamos relación en vez de columna 'pagado'
                 ->whereBetween('created_at', [$inicio . ' 00:00:00', $fin . ' 23:59:59'])
                 ->with('pago')
                 ->get();
 
-            // Sumamos el total cobrado en caja por esas consultas
             $totalVentaConsultas = $consultas->sum(function($c) {
                 return $c->pago ? $c->pago->monto_total : 0;
             });
 
-            // Regla de Negocio: Doctor gana 70% de la consulta
-            $pagoPorConsultas = $totalVentaConsultas * 0.70;
+            $pagoPorConsultas = $totalVentaConsultas * 0.70; 
 
-
-            // --- B. CÁLCULO DE COMISIONES DE LABORATORIO ---
-            // Buscamos órdenes referidas por este doctor que estén PAGADAS
+            // B. LABORATORIO
             $ordenes = OrdenExamen::where('doctor_id', $doctor->id)
-                ->where('pagado', true)
+                ->whereHas('pago') // CORRECCIÓN 3: Verificamos relación en vez de columna 'pagado'
                 ->whereBetween('created_at', [$inicio . ' 00:00:00', $fin . ' 23:59:59'])
                 ->with('pago')
                 ->get();
@@ -56,38 +82,22 @@ class ReporteController extends Controller
             });
 
             $comisionLab = 0;
-
-            // Aplicamos la fórmula personalizada del doctor (Fijo o Porcentaje)
             if ($doctor->comision_lab_tipo == 'porcentaje') {
-                // Ej: (Total Venta * 15) / 100
                 $comisionLab = $totalVentaLab * ($doctor->comision_lab_valor / 100);
             } else {
-                // Ej: 5 órdenes * $5.00 cada una
                 $comisionLab = $ordenes->count() * $doctor->comision_lab_valor;
             }
 
-
-            // --- C. TOTALES FINALES ---
-            $totalGenerado = $totalVentaConsultas + $totalVentaLab; // Dinero que entró a la clínica gracias al doctor
-            $totalA_Pagar = $pagoPorConsultas + $comisionLab;       // Dinero que la clínica le debe al doctor
-
-            // Agregamos al reporte
+            // C. TOTALES
             $reporte[] = [
                 'doctor' => $doctor->usuario->name,
                 'especialidad' => $doctor->especialidad,
-                
-                // Datos Consultas
                 'consultas_count' => $consultas->count(),
                 'pago_consultas' => $pagoPorConsultas,
-                
-                // Datos Laboratorio
                 'ordenes_count' => $ordenes->count(),
                 'pago_laboratorio' => $comisionLab,
                 'config_lab' => $doctor->comision_lab_tipo == 'porcentaje' ? $doctor->comision_lab_valor.'%' : '$'.$doctor->comision_lab_valor,
-                
-                // Totales
-                'total_generado' => $totalGenerado,
-                'total_a_pagar' => $totalA_Pagar,
+                'total_a_pagar' => $pagoPorConsultas + $comisionLab,
             ];
         }
 

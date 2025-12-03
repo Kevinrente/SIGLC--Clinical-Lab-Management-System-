@@ -12,7 +12,12 @@ class Doctor extends Model
     use HasFactory;
 
     protected $fillable = [
-        'nombre', 'apellido', 'licencia_medica', 'especialidad', 'user_id'
+        'user_id', 
+        'especialidad', 
+        'codigo_medico', 
+        'precio_consulta', // El que agregamos antes
+        'comision_lab_tipo', // <--- NUEVO
+        'comision_lab_valor' // <--- NUEVO
     ];
 
     public function usuario(): BelongsTo

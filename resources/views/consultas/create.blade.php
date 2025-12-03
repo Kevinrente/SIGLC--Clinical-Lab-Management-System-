@@ -51,15 +51,70 @@
                     
                     <div class="p-6 space-y-8">
                         
+                        
                         {{-- 1. ANAMNESIS Y EXPLORACIÓN --}}
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            {{-- Columna Izquierda: Motivo + IA --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-1">Motivo de Consulta / Síntomas</label>
-                                <textarea name="motivo_consulta" rows="4" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50" required>{{ old('motivo_consulta', $cita->motivo) }}</textarea>
+                                
+                                <button type="button" id="btn-dictado" onclick="toggleGrabacion()" class="text-xs flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-600 transition">
+                                    <span id="icono-mic">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                        </svg>
+                                    </span>
+                                    <span id="texto-mic">Dictar</span>
+                                </button>
+
+                                <div class="relative">
+                                    {{-- CORREGIDO: Se agregó el < al inicio --}}
+                                    <textarea 
+                                        id="motivo_consulta" 
+                                        name="motivo_consulta" 
+                                        rows="4" 
+                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50" 
+                                        placeholder="Escriba o dicte los síntomas..."
+                                        required>{{ old('motivo_consulta', $cita->motivo) }}</textarea>
+                                        
+                                    <p id="estado-grabacion" class="text-xs text-red-600 mt-1 hidden font-bold animate-pulse">● Grabando... (Habla ahora)</p>
+                                </div>
+                                    
+                                    {{-- Botón Flotante o Debajo (Lo pondré debajo para no tapar texto) --}}
+                                </div>
+
+                                <div class="mt-2 flex justify-end">
+                                    <button type="button" onclick="consultarIA()" id="btn-ia" class="flex items-center text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md shadow transition">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M13 7H7v6h6V7z" />
+                                            <path fill-rule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clip-rule="evenodd" />
+                                        </svg>
+                                        Analizar con IA
+                                    </button>
+                                </div>
+
+                                {{-- Área de Respuesta de la IA (Oculta por defecto) --}}
+                                <div id="resultado_ia" class="hidden mt-3 bg-purple-50 border-l-4 border-purple-500 p-4 rounded shadow-sm">
+                                    <div class="flex justify-between items-start">
+                                        <h4 class="text-xs font-bold text-purple-700 uppercase mb-1">Sugerencia Clínica (Groq):</h4>
+                                        <button type="button" onclick="document.getElementById('resultado_ia').classList.add('hidden')" class="text-purple-400 hover:text-purple-600">
+                                            &times;
+                                        </button>
+                                    </div>
+                                    <p id="texto_ia" class="text-sm text-gray-800 whitespace-pre-line leading-relaxed"></p>
+                                    <div class="mt-2 text-right">
+                                        <button type="button" onclick="copiarAlDiagnostico()" class="text-xs text-purple-600 underline hover:text-purple-800">
+                                            Copiar sugerencia a Diagnóstico Presuntivo
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+
+                            {{-- Columna Derecha: Exploración Física --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-1">Exploración Física (Signos Vitales)</label>
-                                <textarea name="exploracion_fisica" rows="4" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="PA: 120/80, FC: 80, Temp: 36.5...">{{ old('exploracion_fisica') }}</textarea>
+                                <textarea name="exploracion_fisica" rows="4" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 h-full" placeholder="PA: 120/80, FC: 80, Temp: 36.5...">{{ old('exploracion_fisica') }}</textarea>
                             </div>
                         </div>
 
@@ -146,13 +201,15 @@
         </div>
     </div>
 
-    {{-- SCRIPT PARA AGREGAR FILAS DINÁMICAMENTE --}}
+    {{-- SCRIPT COMPLETO --}}
     <script>
+        // ==========================================
+        // 1. LÓGICA DE RECETA MÉDICA
+        // ==========================================
         let contadorFilas = 1;
 
         function agregarMedicamento() {
             const tbody = document.getElementById('listaMedicamentos');
-            
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td class="pr-2 pb-2">
@@ -167,14 +224,161 @@
                     </button>
                 </td>
             `;
-            
             tbody.appendChild(fila);
             contadorFilas++;
         }
 
         function eliminarFila(boton) {
-            const fila = boton.closest('tr');
-            fila.remove();
+            boton.closest('tr').remove();
+        }
+
+        // ==========================================
+        // 2. LÓGICA DE TEXTO IA (Groq)
+        // ==========================================
+        async function consultarIA() {
+            const sintomas = document.getElementById('motivo_consulta').value;
+            const btn = document.getElementById('btn-ia');
+            const resultadoDiv = document.getElementById('resultado_ia');
+            const textoP = document.getElementById('texto_ia');
+
+            if (!sintomas || sintomas.length < 5) {
+                alert('Por favor, ingresa los síntomas primero.');
+                document.getElementById('motivo_consulta').focus();
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Pensando...`;
+            
+            try {
+                const response = await fetch("{{ route('consultas.ia') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ sintomas: sintomas })
+                });
+
+                if (!response.ok) throw new Error('Error en la red');
+                const data = await response.json();
+                
+                textoP.innerText = data.respuesta;
+                resultadoDiv.classList.remove('hidden');
+
+            } catch (error) {
+                console.error(error);
+                alert('Error al consultar la IA.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M13 7H7v6h6V7z" /><path fill-rule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clip-rule="evenodd" /></svg> Analizar con IA`;
+            }
+        }
+
+        function copiarAlDiagnostico() {
+            const textoIA = document.getElementById('texto_ia').innerText;
+            const inputDiagnostico = document.querySelector('input[name="diagnostico_presuntivo"]');
+            inputDiagnostico.value = textoIA.substring(0, 250);
+            inputDiagnostico.focus();
+        }
+
+        // ==========================================
+        // 3. LÓGICA DE DICTADO POR VOZ (Whisper) - ¡ESTO FALTABA!
+        // ==========================================
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        async function toggleGrabacion() {
+            const btn = document.getElementById('btn-dictado');
+            const estado = document.getElementById('estado-grabacion');
+            const textoBtn = document.getElementById('texto-mic');
+            const iconoBtn = document.getElementById('icono-mic');
+
+            if (!isRecording) {
+                // INICIAR
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                    
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        enviarAudioBackend(audioBlob);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // UI: Grabando
+                    estado.classList.remove('hidden');
+                    textoBtn.innerText = "Detener";
+                    btn.classList.add('bg-red-50', 'text-red-600', 'border-red-200');
+                    iconoBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-pulse" viewBox="0 0 20 20" fill="currentColor"><rect x="5" y="5" width="10" height="10" /></svg>`;
+
+                } catch (err) {
+                    alert('Permiso de micrófono denegado.');
+                }
+            } else {
+                // DETENER
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                // UI: Procesando
+                estado.innerText = "Transcribiendo...";
+                estado.classList.remove('text-red-600', 'animate-pulse');
+                estado.classList.add('text-indigo-600');
+                textoBtn.innerText = "Procesando...";
+                btn.disabled = true;
+            }
+        }
+
+        async function enviarAudioBackend(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'grabacion.webm');
+
+            try {
+                // Asegúrate que esta ruta exista en web.php
+                const response = await fetch("{{ route('consultas.transcribir') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.texto) {
+                    const textarea = document.getElementById('motivo_consulta');
+                    // Añade el texto al final con un espacio
+                    textarea.value = textarea.value ? textarea.value + " " + data.texto : data.texto;
+                } else {
+                    alert('No se escuchó nada claro.');
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert('Error al enviar el audio.');
+            } finally {
+                // Reset UI
+                const btn = document.getElementById('btn-dictado');
+                const estado = document.getElementById('estado-grabacion');
+                const textoBtn = document.getElementById('texto-mic');
+                const iconoBtn = document.getElementById('icono-mic');
+
+                btn.disabled = false;
+                btn.classList.remove('bg-red-50', 'text-red-600', 'border-red-200');
+                textoBtn.innerText = "Dictar";
+                iconoBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>`;
+                
+                estado.classList.add('hidden');
+                estado.innerText = "● Grabando... (Habla ahora)"; // Reset texto original
+                estado.classList.add('text-red-600', 'animate-pulse'); // Reset clases originales
+                estado.classList.remove('text-indigo-600');
+            }
         }
     </script>
 </x-app-layout>

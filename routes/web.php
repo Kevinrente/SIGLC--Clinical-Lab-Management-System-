@@ -9,18 +9,19 @@ use App\Http\Controllers\ConsultaController;
 use App\Http\Controllers\LaboratorioController;
 use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\OrdenExamenController;
-use App\Http\Controllers\PagoController; // Importante: Módulo de Caja
-use App\Http\Controllers\DashboardController; // Importante: Nuevo Dashboard
-use App\Models\Paciente;
-use App\Models\Cita;
+use App\Http\Controllers\PagoController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\CajaController;
+use App\Http\Controllers\ReporteController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
 // ====================================================================
-// DASHBOARD (CORREGIDO: Usando el Controlador)
+// DASHBOARD
 // ====================================================================
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
@@ -46,6 +47,25 @@ Route::middleware('auth')->group(function () {
     Route::resource('consultas', ConsultaController::class);
     Route::get('citas/{cita}/consulta/create', [ConsultaController::class, 'createFromCita'])->name('consultas.createFromCita');
     
+
+    // ====================================================================
+    // MÓDULOS ADMINISTRATIVOS (Inventario, Caja, Reportes)
+    // ====================================================================
+    
+    // Inventario
+    Route::get('/inventario', [InventarioController::class, 'index'])->name('inventario.index');
+    Route::get('/inventario/crear', [InventarioController::class, 'create'])->name('inventario.create');
+    Route::post('/inventario', [InventarioController::class, 'store'])->name('inventario.store');
+    Route::post('/inventario/{insumo}/stock', [InventarioController::class, 'addStock'])->name('inventario.addStock');
+
+    // Caja (Control de Sesiones y Movimientos)
+    Route::get('/caja', [CajaController::class, 'index'])->name('caja.index');
+    Route::get('/caja/historial', [CajaController::class, 'historial'])->name('caja.historial');
+    Route::post('/caja/cerrar', [CajaController::class, 'cerrarCaja'])->name('caja.cerrar');
+    Route::post('/caja/gasto', [CajaController::class, 'storeGasto'])->name('caja.gasto.store');
+    
+    // Reportes
+    Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
     // ====================================================================
     // GESTIÓN DE ÓRDENES (DOCTOR Y LABORATORIO)
     // ====================================================================
@@ -78,17 +98,41 @@ Route::middleware('auth')->group(function () {
     // RUTAS DE COBRO DE CONSULTAS
     Route::get('pagos/cobrar/consulta/{consulta}', [PagoController::class, 'createForConsulta'])->name('pagos.consulta.create');
     Route::post('pagos/consulta', [PagoController::class, 'storeConsulta'])->name('pagos.consulta.store');
+    
     // Catálogo de Exámenes
-    Route::resource('examenes', ExamenController::class)->only(['index', 'create', 'store', 'edit', 'update'])->names([
+    Route::resource('examenes', ExamenController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names([
         'index' => 'examenes.index',
         'create' => 'examenes.create',
         'store' => 'examenes.store',
         'edit' => 'examenes.edit',
         'update' => 'examenes.update',
+        'destroy' => 'examenes.destroy', // <--- ¡ESTA FALTABA!
     ]);
 
-    // Ruta para descargar receta médica (accesible para Paciente y Doctor)
+    // Ruta para asignar un insumo (reactivo) a un examen
+    Route::post('/examenes/{examen}/insumos', [ExamenController::class, 'asignarInsumo'])->name('examenes.insumos.store');
+    
+    // Y probablemente necesites esta también para quitarlo (desvincular insumo)
+    Route::delete('/examenes/{examen}/insumos/{insumo}', [ExamenController::class, 'quitarInsumo'])->name('examenes.insumos.destroy');
+
+    // Ruta para descargar receta médica
     Route::get('consultas/{consulta}/receta', [ConsultaController::class, 'downloadReceta'])->name('consultas.receta.pdf');
+
+    // ====================================================================
+    // 🤖 RUTAS DE INTELIGENCIA ARTIFICIAL (SIGLC) - ¡NUEVAS!
+    // ====================================================================
+    
+    // 1. IA para CONSULTAS (Texto y Audio)
+    Route::post('/consultas/ia-analisis', [ConsultaController::class, 'consultarIA'])->name('consultas.ia');
+    Route::post('/consultas/ia-transcribir', [ConsultaController::class, 'transcribirAudio'])->name('consultas.transcribir');
+
+    // 2. IA para ÓRDENES (Escáner OCR)
+    Route::post('/ordenes/escanear', [OrdenExamenController::class, 'escanearOrden'])->name('ordenes.escanear');
+
+    // 3. IA para LABORATORIO (Interpretación de Resultados)
+    Route::post('/laboratorio/interpretar', [LaboratorioController::class, 'interpretarResultados'])->name('laboratorio.interpretar');
+
+    Route::post('/pacientes/chat', [PacienteController::class, 'chatIA'])->name('pacientes.chat');
 });
 
 require __DIR__.'/auth.php';

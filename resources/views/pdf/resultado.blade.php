@@ -13,6 +13,31 @@
         .table td { border-bottom: 1px solid #ddd; padding: 6px; }
         .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; color: #777; border-top: 1px solid #ddd; padding-top: 10px; }
         .page-break { page-break-after: always; }
+
+        /* --- NUEVOS ESTILOS PARA LA IA --- */
+        .analysis-box { 
+            margin-top: 25px; 
+            padding: 15px; 
+            background-color: #f0f8ff; /* Azul muy suave */
+            border: 1px solid #cce5ff; 
+            border-radius: 5px;
+            page-break-inside: avoid; /* Evita que se corte entre páginas */
+        }
+        .analysis-title {
+            color: #0056b3;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #dae0e5;
+            padding-bottom: 5px;
+        }
+        .analysis-text {
+            color: #444;
+            font-style: italic;
+            line-height: 1.5;
+            text-align: justify;
+        }
     </style>
 </head>
 <body>
@@ -85,6 +110,18 @@
             @endforeach
         </tbody>
     </table>
+
+    {{-- ========================================== --}}
+    {{-- NUEVO BLOQUE: INTERPRETACIÓN DIAGNÓSTICA   --}}
+    {{-- ========================================== --}}
+    @if(!empty($orden->analisis_ia))
+        <div class="analysis-box">
+            <div class="analysis-title">Interpretación Diagnóstica / Observaciones</div>
+            <div class="analysis-text">
+                {{ $orden->analisis_ia }}
+            </div>
+        </div>
+    @endif
 
     <div class="footer">
         Este documento es un informe confidencial. Generado automáticamente por SIGLC.

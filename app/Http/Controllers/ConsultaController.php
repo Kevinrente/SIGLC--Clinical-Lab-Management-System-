@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail; // <--- Importante para el correo
 use App\Mail\RecetaMedicaMail;       // <--- Importante para la clase de correo
 use Barryvdh\DomPDF\Facade\Pdf;      // <--- Importante para la descarga directa
+use App\Services\AIService; // <--- Importante
 
 class ConsultaController extends Controller
 {
@@ -136,5 +137,36 @@ class ConsultaController extends Controller
         $pdf = Pdf::loadView('pdf.receta_medica', ['consulta' => $consulta]);
         
         return $pdf->download('Receta_Medica_' . $consulta->id . '.pdf');
+    }
+
+    /**
+     * Método AJAX para consultar a Groq desde la vista de crear consulta
+     */
+    public function consultarIA(Request $request, AIService $ai)
+    {
+        // Validamos que venga el texto
+        $request->validate(['sintomas' => 'required|string|min:5']);
+
+        $sugerencia = $ai->analizarSintomas($request->sintomas);
+
+        return response()->json([
+            'respuesta' => $sugerencia
+        ]);
+    }
+
+    // Método para recibir el audio desde JS
+    public function transcribirAudio(Request $request, AIService $ai)
+    {
+        $request->validate([
+            'audio' => 'required|file|mimes:webm,mp4,mp3,wav|max:10240', // Max 10MB
+        ]);
+
+        $texto = $ai->transcribirAudio($request->file('audio'));
+
+        if (!$texto) {
+            return response()->json(['error' => 'No se pudo transcribir el audio'], 500);
+        }
+
+        return response()->json(['texto' => $texto]);
     }
 }

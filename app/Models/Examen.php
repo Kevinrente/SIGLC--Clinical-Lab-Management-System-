@@ -27,6 +27,13 @@ class Examen extends Model
     {
         return $this->belongsToMany(OrdenExamen::class, 'orden_examen_examen');
     }
+
+    // Relación: Qué insumos gasta este examen
+    public function insumos()
+    {
+        return $this->belongsToMany(Insumo::class, 'examen_insumo')
+                    ->withPivot('cantidad_necesaria');
+    }
 }
 
 

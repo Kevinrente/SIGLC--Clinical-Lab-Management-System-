@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Doctor;
-use App\Models\User; // Necesario para crear el usuario asociado
+use App\Models\User;
 use App\Http\Requests\StoreDoctorRequest;
 use App\Http\Requests\UpdateDoctorRequest;
 use Illuminate\Http\Request;
@@ -25,15 +25,12 @@ class DoctorController extends Controller
     
     public function index()
     {
-        // Eager load the user relation
         $doctors = Doctor::with('usuario')->orderBy('apellido')->paginate(15);
-        
         return view('doctors.index', compact('doctors'));
     }
 
     public function create()
     {
-        // En un sistema real, el Admin podría asignar un User existente, pero simplificamos.
         return view('doctors.create');
     }
 
@@ -42,41 +39,42 @@ class DoctorController extends Controller
      */
     public function store(StoreDoctorRequest $request)
     {
-        // Usamos una transacción para asegurar que ambos registros (User y Doctor) se creen o ninguno lo haga.
         DB::beginTransaction();
 
         try {
             // 1. Crear el Usuario para el Login
             $user = User::create([
                 'name' => $request->nombre . ' ' . $request->apellido,
-                'email' => $request->email_usuario, // Campo extra en el request para el email del login
-                'password' => Hash::make($request->licencia_medica), // Usamos la licencia como contraseña temporal
+                'email' => $request->email_usuario, 
+                'password' => Hash::make($request->licencia_medica), // Contraseña temporal
             ]);
             
-            // Asignar el rol de 'Doctor' al usuario
             $user->assignRole('Doctor');
 
-            // 2. Crear el Registro del Doctor y vincularlo
+            // 2. Crear el Registro del Doctor con TODOS los datos financieros
             Doctor::create([
+                'user_id' => $user->id,
                 'nombre' => $request->nombre,
                 'apellido' => $request->apellido,
                 'licencia_medica' => $request->licencia_medica,
                 'especialidad' => $request->especialidad,
-                'user_id' => $user->id, // Vinculación clave
+                
+                // CAMPOS FINANCIEROS (Nuevos)
+                'precio_consulta' => $request->precio_consulta ?? 30.00, // Valor por defecto si viene vacío
+                'comision_lab_tipo' => $request->comision_lab_tipo ?? 'porcentaje',
+                'comision_lab_valor' => $request->comision_lab_valor ?? 0,
             ]);
 
             DB::commit();
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('doctors.index')->with('error', 'Error al registrar doctor y usuario asociado.');
+            return redirect()->route('doctors.index')->with('error', 'Error al registrar doctor: ' . $e->getMessage());
         }
 
         return redirect()->route('doctors.index')
-            ->with('success', 'Doctor registrado y cuenta de usuario creada exitosamente. (Contraseña temporal: Licencia Médica).');
+            ->with('success', 'Doctor registrado exitosamente. (Contraseña: Licencia Médica).');
     }
-    
-    // ... show y edit se implementan de forma estándar ...
     
     public function show(Doctor $doctor)
     {
@@ -89,16 +87,18 @@ class DoctorController extends Controller
     }
 
     /**
-     * Actualiza el registro del Doctor y sincroniza el nombre del usuario asociado.
+     * Actualiza el registro del Doctor.
      */
     public function update(UpdateDoctorRequest $request, Doctor $doctor)
     {
+        // Actualizamos todos los campos validados (incluyendo los financieros)
         $doctor->update($request->validated());
 
-        // Opcional: Actualizar el nombre del usuario si el nombre del doctor cambia
+        // Actualizar el nombre del usuario asociado
         if ($doctor->usuario) {
             $doctor->usuario->update([
                 'name' => $request->nombre . ' ' . $request->apellido,
+                // Si quisieras permitir cambiar el email, aquí iría también
             ]);
         }
         
@@ -106,25 +106,21 @@ class DoctorController extends Controller
             ->with('success', 'Datos del doctor actualizados exitosamente.');
     }
 
-    /**
-     * Elimina el registro del Doctor y anula la cuenta de usuario.
-     */
     public function destroy(Doctor $doctor)
     {
-        // Requisito: Un doctor con citas activas NO debe ser eliminado.
+        // Validación de integridad referencial
         if ($doctor->citas()->whereIn('estado', ['Pendiente', 'Confirmada'])->count() > 0) {
             return redirect()->route('doctors.index')
-                ->with('error', 'No se puede eliminar el doctor: tiene citas pendientes o confirmadas.');
+                ->with('error', 'No se puede eliminar: tiene citas activas.');
         }
 
-        // Si el doctor tiene un usuario, lo eliminamos (o lo desvinculamos/desactivamos si hubiera un campo 'activo')
         if ($doctor->usuario) {
-            $doctor->usuario->delete(); // Elimina la cuenta de usuario del login
+            $doctor->usuario->delete();
         }
         
         $doctor->delete(); 
         
         return redirect()->route('doctors.index')
-            ->with('success', 'Doctor y cuenta de usuario eliminados correctamente.');
+            ->with('success', 'Doctor eliminado correctamente.');
     }
 }

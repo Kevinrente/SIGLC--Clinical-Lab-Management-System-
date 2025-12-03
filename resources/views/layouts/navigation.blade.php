@@ -8,16 +8,16 @@
                     </a>
                 </div>
 
-                <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
+                <div class="hidden space-x-4 sm:-my-px sm:ml-4 sm:flex overflow-x-auto whitespace-nowrap scrollbar-hide">
                     
-                    {{-- 1. DASHBOARD (Todos menos pacientes) --}}
+                    {{-- 1. DASHBOARD --}}
                     @if(!Auth::user()->paciente)
                         <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                             {{ __('Dashboard') }}
                         </x-nav-link>
                     @endif
 
-                    {{-- 2. MENÚ PACIENTE --}}
+                    {{-- 2. PACIENTE --}}
                     @if(Auth::user()->paciente)
                         <x-nav-link :href="route('pacientes.portal')" :active="request()->routeIs('pacientes.portal')">
                             {{ __('Mis Resultados') }}
@@ -27,45 +27,70 @@
                         </x-nav-link>
                     @endif
 
-                    {{-- 3. AGENDA MÉDICA (Doctores + Admin) --}}
-                    {{-- CORRECCIÓN: Usamos can('gestion.administracion') --}}
-                    {{-- 3. AGENDA Y CITAS --}}
+                    {{-- 3. AGENDA (Doctores + Admin) --}}
                     @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
-                        {{-- Calendario Visual --}}
                         <x-nav-link :href="route('citas.calendario')" :active="request()->routeIs('citas.calendario')">
                             {{ __('Agenda') }}
                         </x-nav-link>
-
-                        {{-- NUEVO: Lista de Citas (Tabla) --}}
                         <x-nav-link :href="route('citas.index')" :active="request()->routeIs('citas.index')">
-                            {{ __('Lista de Citas') }}
+                            {{ __('Lista Citas') }}
                         </x-nav-link>
                     @endif
 
-                    {{-- 4. PACIENTES (Todos los del personal médico) --}}
+                    {{-- 4. PACIENTES --}}
                     @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
                         <x-nav-link :href="route('pacientes.index')" :active="request()->routeIs('pacientes.*')">
                             {{ __('Pacientes') }}
                         </x-nav-link>
                     @endif
 
-                    {{-- 5. CONSULTAS Y FACTURACIÓN (Doctores + Admin) --}}
-                    @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
-                        <x-nav-link :href="route('consultas.index')" :active="request()->routeIs('consultas.*')">
-                            {{ __('Consultas & Caja') }}
+                    {{-- 5. DOCTORES (SOLO ADMIN) --}}
+                    @if(Auth::user()->can('gestion.administracion'))
+                        <x-nav-link :href="route('doctors.index')" :active="request()->routeIs('doctors.*')">
+                            {{ __('Doctores') }}
                         </x-nav-link>
                     @endif
 
-                    {{-- 6. LABORATORIO (Laboratoristas + Admin) --}}
+                    {{-- 6. CONSULTAS --}}
+                    @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
+                        <x-nav-link :href="route('consultas.index')" :active="request()->routeIs('consultas.*')">
+                            {{ __('Consultas') }}
+                        </x-nav-link>
+                    @endif
+
+                    {{-- 7. LABORATORIO Y GESTIÓN --}}
                     @if(Auth::user()->can('gestion.laboratorio') || Auth::user()->can('gestion.administracion'))
                         <x-nav-link :href="route('laboratorio.index')" :active="request()->routeIs('laboratorio.*')">
                             {{ __('Laboratorio') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('examenes.index')" :active="request()->routeIs('examenes.*')">
+                            {{ __('Catálogo') }}
+                        </x-nav-link>
+                        {{-- AHORA SÍ HABILITADO --}}
+                        <x-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">
+                            {{ __('Inventario') }}
+                        </x-nav-link>
+                    @endif
+
+                    {{-- 8. CAJA Y REPORTES --}}
+                    @if(Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
+                        {{-- AHORA SÍ HABILITADO --}}
+                        <x-nav-link :href="route('caja.index')" :active="request()->routeIs('caja.*')">
+                            {{ __('Control Caja') }}
+                        </x-nav-link>
+                    @endif
+
+                    @if(Auth::user()->can('gestion.administracion'))
+                        {{-- CORREGIDO: reportes.honorarios -> reportes.index --}}
+                        <x-nav-link :href="route('reportes.index')" :active="request()->routeIs('reportes.*')">
+                            {{ __('Reportes') }}
                         </x-nav-link>
                     @endif
 
                 </div>
             </div>
 
+            {{-- DATOS USUARIO / LOGOUT --}}
             <div class="hidden sm:flex sm:items-center sm:ml-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
@@ -83,24 +108,17 @@
                             </div>
                         </button>
                     </x-slot>
-
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Perfil') }}
-                        </x-dropdown-link>
-
+                        <x-dropdown-link :href="route('profile.edit')">{{ __('Perfil') }}</x-dropdown-link>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
-                                {{ __('Cerrar Sesión') }}
-                            </x-dropdown-link>
+                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">{{ __('Cerrar Sesión') }}</x-dropdown-link>
                         </form>
                     </x-slot>
                 </x-dropdown>
             </div>
 
+            {{-- MENÚ MÓVIL (HAMBURGUESA) --}}
             <div class="-mr-2 flex items-center sm:hidden">
                 <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -112,14 +130,18 @@
         </div>
     </div>
 
+    {{-- MENÚ MÓVIL (DESPLEGABLE) --}}
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
+            
+            {{-- DASHBOARD --}}
             @if(!Auth::user()->paciente)
                 <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                     {{ __('Dashboard') }}
                 </x-responsive-nav-link>
             @endif
 
+            {{-- PACIENTE --}}
             @if(Auth::user()->paciente)
                 <x-responsive-nav-link :href="route('pacientes.portal')" :active="request()->routeIs('pacientes.portal')">
                     {{ __('Mis Resultados') }}
@@ -129,27 +151,64 @@
                 </x-responsive-nav-link>
             @endif
 
+            {{-- AGENDA --}}
             @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
                 <x-responsive-nav-link :href="route('citas.calendario')" :active="request()->routeIs('citas.calendario')">
                     {{ __('Agenda') }}
                 </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('citas.index')" :active="request()->routeIs('citas.index')">
+                    {{ __('Lista Citas') }}
+                </x-responsive-nav-link>
             @endif
 
+            {{-- PACIENTES --}}
             @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
                 <x-responsive-nav-link :href="route('pacientes.index')" :active="request()->routeIs('pacientes.*')">
                     {{ __('Pacientes') }}
                 </x-responsive-nav-link>
             @endif
 
-            @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
-                <x-responsive-nav-link :href="route('consultas.index')" :active="request()->routeIs('consultas.*')">
-                    {{ __('Consultas & Caja') }}
+            {{-- DOCTORES --}}
+            @if(Auth::user()->can('gestion.administracion'))
+                <x-responsive-nav-link :href="route('doctors.index')" :active="request()->routeIs('doctors.*')">
+                    {{ __('Doctores') }}
                 </x-responsive-nav-link>
             @endif
 
+            {{-- CONSULTAS --}}
+            @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
+                <x-responsive-nav-link :href="route('consultas.index')" :active="request()->routeIs('consultas.*')">
+                    {{ __('Consultas') }}
+                </x-responsive-nav-link>
+            @endif
+
+            {{-- LABORATORIO --}}
             @if(Auth::user()->can('gestion.laboratorio') || Auth::user()->can('gestion.administracion'))
                 <x-responsive-nav-link :href="route('laboratorio.index')" :active="request()->routeIs('laboratorio.*')">
                     {{ __('Laboratorio') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('examenes.index')" :active="request()->routeIs('examenes.*')">
+                    {{ __('Catálogo') }}
+                </x-responsive-nav-link>
+                {{-- DESCOMENTADO --}}
+                <x-responsive-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">
+                    {{ __('Inventario') }}
+                </x-responsive-nav-link>
+            @endif
+
+            {{-- CAJA --}}
+            @if(Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
+                {{-- DESCOMENTADO --}}
+                <x-responsive-nav-link :href="route('caja.index')" :active="request()->routeIs('caja.*')">
+                    {{ __('Control Caja') }}
+                </x-responsive-nav-link>
+            @endif
+
+            {{-- REPORTES --}}
+            @if(Auth::user()->can('gestion.administracion'))
+                {{-- CORREGIDO --}}
+                <x-responsive-nav-link :href="route('reportes.index')" :active="request()->routeIs('reportes.*')">
+                    {{ __('Reportes') }}
                 </x-responsive-nav-link>
             @endif
         </div>
@@ -159,19 +218,11 @@
                 <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
                 <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
             </div>
-
             <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Perfil') }}
-                </x-responsive-nav-link>
-
+                <x-responsive-nav-link :href="route('profile.edit')">{{ __('Perfil') }}</x-responsive-nav-link>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
-                        {{ __('Cerrar Sesión') }}
-                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">{{ __('Cerrar Sesión') }}</x-responsive-nav-link>
                 </form>
             </div>
         </div>

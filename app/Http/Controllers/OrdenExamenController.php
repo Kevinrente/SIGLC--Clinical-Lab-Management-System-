@@ -100,6 +100,48 @@ class OrdenExamenController extends Controller
         // Si es doctor, volvemos a la cita (si existe) o al dashboard
         return redirect()->back()->with('success', 'Orden generada correctamente.');
     }
+
+    public function escanearOrden(Request $request, \App\Services\AIService $ai)
+    {
+        $request->validate([
+            'imagen_orden' => 'required|image|max:10240', // Max 10MB
+        ]);
+
+        // 1. Enviar a Groq
+        $jsonResponse = $ai->leerOrdenMedica($request->file('imagen_orden')->path());
+        
+        if (!$jsonResponse) {
+            return response()->json(['error' => 'No se pudo leer la imagen'], 500);
+        }
+
+        // 2. Parsear respuesta
+        $data = json_decode($jsonResponse, true);
+        $nombresDetectados = $data['examenes'] ?? [];
+
+        // 3. Buscar los IDs en la base de datos
+        // Buscamos coincidencias exactas o muy parecidas
+        $idsEncontrados = \App\Models\Examen::whereIn('nombre', $nombresDetectados)->pluck('id');
+
+        return response()->json([
+            'ids' => $idsEncontrados,
+            'nombres' => $nombresDetectados // Para mostrar un mensaje de qué encontró
+        ]);
+    }
     
+    public function interpretarResultados(Request $request, \App\Services\AIService $ai)
+    {
+        // Validamos que venga la lista de resultados
+        $request->validate([
+            'resultados' => 'required|array',
+            'paciente' => 'required|string'
+        ]);
+
+        $conclusion = $ai->generarConclusionTecnica(
+            $request->resultados, 
+            $request->paciente
+        );
+
+        return response()->json(['conclusion' => $conclusion]);
+    }
     // ... otros métodos (index, show) ...
 }

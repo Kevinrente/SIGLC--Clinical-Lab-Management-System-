@@ -15,10 +15,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\CajaController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\WebConfigController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [WebConfigController::class, 'home'])->name('home');
 
 // ====================================================================
 // DASHBOARD
@@ -34,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
+
     // PACIENTES Y DOCTORES
     Route::get('/mis-resultados', [PacienteController::class, 'misResultados'])->name('pacientes.portal');
     Route::resource('pacientes', PacienteController::class);
@@ -133,6 +133,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/laboratorio/interpretar', [LaboratorioController::class, 'interpretarResultados'])->name('laboratorio.interpretar');
 
     Route::post('/pacientes/chat', [PacienteController::class, 'chatIA'])->name('pacientes.chat');
+
+    Route::middleware('can:gestion.administracion')->group(function () {
+        Route::get('/admin/web', [WebConfigController::class, 'index'])->name('web.edit');
+        Route::post('/admin/web', [WebConfigController::class, 'update'])->name('web.update');
+        Route::post('/admin/web/especialidad', [App\Http\Controllers\EspecialidadController::class, 'store'])->name('especialidad.store');
+        Route::delete('/admin/web/especialidad/{id}', [App\Http\Controllers\EspecialidadController::class, 'destroy'])->name('especialidad.destroy');
+    });
 });
 
 require __DIR__.'/auth.php';

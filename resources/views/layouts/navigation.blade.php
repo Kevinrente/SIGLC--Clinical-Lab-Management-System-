@@ -66,7 +66,7 @@
                         <x-nav-link :href="route('examenes.index')" :active="request()->routeIs('examenes.*')">
                             {{ __('Catálogo') }}
                         </x-nav-link>
-                        {{-- AHORA SÍ HABILITADO --}}
+                        
                         <x-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">
                             {{ __('Inventario') }}
                         </x-nav-link>
@@ -74,16 +74,19 @@
 
                     {{-- 8. CAJA Y REPORTES --}}
                     @if(Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
-                        {{-- AHORA SÍ HABILITADO --}}
                         <x-nav-link :href="route('caja.index')" :active="request()->routeIs('caja.*')">
                             {{ __('Control Caja') }}
                         </x-nav-link>
                     @endif
 
                     @if(Auth::user()->can('gestion.administracion'))
-                        {{-- CORREGIDO: reportes.honorarios -> reportes.index --}}
                         <x-nav-link :href="route('reportes.index')" :active="request()->routeIs('reportes.*')">
                             {{ __('Reportes') }}
+                        </x-nav-link>
+
+                        {{-- 9. CONFIGURACIÓN WEB (CMS) - NUEVO --}}
+                        <x-nav-link :href="route('web.edit')" :active="request()->routeIs('web.*')">
+                            {{ __('Sitio Web') }}
                         </x-nav-link>
                     @endif
 
@@ -134,14 +137,12 @@
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             
-            {{-- DASHBOARD --}}
             @if(!Auth::user()->paciente)
                 <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                     {{ __('Dashboard') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- PACIENTE --}}
             @if(Auth::user()->paciente)
                 <x-responsive-nav-link :href="route('pacientes.portal')" :active="request()->routeIs('pacientes.portal')">
                     {{ __('Mis Resultados') }}
@@ -151,7 +152,6 @@
                 </x-responsive-nav-link>
             @endif
 
-            {{-- AGENDA --}}
             @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
                 <x-responsive-nav-link :href="route('citas.calendario')" :active="request()->routeIs('citas.calendario')">
                     {{ __('Agenda') }}
@@ -161,28 +161,24 @@
                 </x-responsive-nav-link>
             @endif
 
-            {{-- PACIENTES --}}
             @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
                 <x-responsive-nav-link :href="route('pacientes.index')" :active="request()->routeIs('pacientes.*')">
                     {{ __('Pacientes') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- DOCTORES --}}
             @if(Auth::user()->can('gestion.administracion'))
                 <x-responsive-nav-link :href="route('doctors.index')" :active="request()->routeIs('doctors.*')">
                     {{ __('Doctores') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- CONSULTAS --}}
             @if(Auth::user()->doctor || Auth::user()->can('gestion.administracion'))
                 <x-responsive-nav-link :href="route('consultas.index')" :active="request()->routeIs('consultas.*')">
                     {{ __('Consultas') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- LABORATORIO --}}
             @if(Auth::user()->can('gestion.laboratorio') || Auth::user()->can('gestion.administracion'))
                 <x-responsive-nav-link :href="route('laboratorio.index')" :active="request()->routeIs('laboratorio.*')">
                     {{ __('Laboratorio') }}
@@ -190,25 +186,25 @@
                 <x-responsive-nav-link :href="route('examenes.index')" :active="request()->routeIs('examenes.*')">
                     {{ __('Catálogo') }}
                 </x-responsive-nav-link>
-                {{-- DESCOMENTADO --}}
                 <x-responsive-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">
                     {{ __('Inventario') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- CAJA --}}
             @if(Auth::user()->can('gestion.administracion') || Auth::user()->can('gestion.laboratorio'))
-                {{-- DESCOMENTADO --}}
                 <x-responsive-nav-link :href="route('caja.index')" :active="request()->routeIs('caja.*')">
                     {{ __('Control Caja') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- REPORTES --}}
             @if(Auth::user()->can('gestion.administracion'))
-                {{-- CORREGIDO --}}
                 <x-responsive-nav-link :href="route('reportes.index')" :active="request()->routeIs('reportes.*')">
                     {{ __('Reportes') }}
+                </x-responsive-nav-link>
+                
+                {{-- MÓVIL: CONFIGURACIÓN WEB --}}
+                <x-responsive-nav-link :href="route('web.edit')" :active="request()->routeIs('web.*')">
+                    {{ __('Sitio Web') }}
                 </x-responsive-nav-link>
             @endif
         </div>
